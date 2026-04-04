@@ -1,0 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/resource_log_service.dart';
+import '../models/resource_log_model.dart';
+
+final loggingServiceProvider = Provider<ResourceLogService>((ref) {
+  return ResourceLogService();
+});
+
+final projectLogsProvider = StreamProvider.family<List<ResourceLogModel>, String>((ref, projectId) {
+  return ref.watch(loggingServiceProvider).getLogs(projectId);
+});

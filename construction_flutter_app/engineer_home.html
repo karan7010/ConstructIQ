@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Engineer Home | ConstructIQ</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-fixed": "#2a1700",
+              "surface": "#f7f9fc",
+              "on-primary": "#ffffff",
+              "surface-bright": "#f7f9fc",
+              "primary-container": "#1a56a0",
+              "primary-fixed": "#d6e3ff",
+              "on-secondary-container": "#684000",
+              "tertiary": "#850009",
+              "primary": "#003e7e",
+              "inverse-surface": "#2d3133",
+              "on-primary-container": "#b3cdff",
+              "tertiary-container": "#b10010",
+              "on-background": "#191c1e",
+              "on-tertiary": "#ffffff",
+              "surface-container-highest": "#e0e3e6",
+              "surface-container-low": "#f2f4f7",
+              "on-error-container": "#93000a",
+              "outline": "#737782",
+              "tertiary-fixed": "#ffdad6",
+              "secondary-fixed": "#ffddb8",
+              "surface-container": "#eceef1",
+              "surface-tint": "#265ea8",
+              "on-surface-variant": "#424751",
+              "on-secondary": "#ffffff",
+              "secondary": "#855300",
+              "on-tertiary-fixed": "#410002",
+              "on-tertiary-container": "#ffbcb4",
+              "primary-fixed-dim": "#a9c7ff",
+              "background": "#f7f9fc",
+              "surface-variant": "#e0e3e6",
+              "error": "#ba1a1a",
+              "on-error": "#ffffff",
+              "inverse-on-surface": "#eff1f4",
+              "on-tertiary-fixed-variant": "#93000b",
+              "on-surface": "#191c1e",
+              "outline-variant": "#c2c6d3",
+              "secondary-container": "#fea619",
+              "surface-dim": "#d8dadd",
+              "on-primary-fixed-variant": "#00468c",
+              "on-secondary-fixed-variant": "#653e00",
+              "on-primary-fixed": "#001b3d",
+              "inverse-primary": "#a9c7ff",
+              "error-container": "#ffdad6",
+              "surface-container-high": "#e6e8eb",
+              "secondary-fixed-dim": "#ffb95f",
+              "tertiary-fixed-dim": "#ffb4ab",
+              "surface-container-lowest": "#ffffff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .filled-icon {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#f7f9fc] dark:bg-slate-900 flex justify-between items-center w-full px-6 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-white overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional portrait of a middle-aged site engineer wearing a white hard hat and reflective safety vest in an industrial setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPx5vKv4kusoZ6dLuehRG9RJdZBVTulUsJtf7KTMPz3_GASZ6oPTmr6g0StbJXiZdv2WTzJNBAVCql0z4DzsB_A5FiXBmkmZjCguxY_9gpRTJLs32qz8ADr0pcnFYp7ubxamf21gsdsO7bcW8ITNPG7gNONywpmQTRdw2ofdxvYlPc_NjL_CGail_SPIDiNW4kmxuEuMM-3I3TQiMjXpKzEiuzsovHOWrnVjpMSB4G6y54CnB4hj1ygcrrBTvzBWnCEHxuUkrMc8rb"/>
+</div>
+<div class="flex flex-col">
+<span class="font-['Inter'] headline-sm font-bold text-[#191c1e] dark:text-slate-100 leading-tight">ConstructIQ</span>
+<span class="text-[11px] text-on-surface-variant font-medium">Site Engineer Portal</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-[#424751] dark:text-slate-400 hover:bg-[#e6e8eb] dark:hover:bg-slate-800 p-2 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</div>
+</header>
+<main class="px-6 py-6 max-w-5xl mx-auto space-y-6">
+<!-- Welcome Header -->
+<div class="flex flex-col gap-1">
+<h1 class="text-[24px] font-bold text-on-surface">Today's Tasks</h1>
+<p class="text-on-surface-variant text-sm font-medium">Oct 24, 2026</p>
+</div>
+<!-- Assigned Project Card - Bento Style -->
+<section class="relative overflow-hidden bg-surface-container-lowest rounded-xl shadow-[0_12px_32px_rgba(25,28,30,0.06)] group">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none"></div>
+<div class="p-6 flex flex-col md:flex-row gap-6 items-start md:items-center">
+<div class="w-20 h-20 md:w-24 md:h-24 rounded-lg bg-primary-container flex-shrink-0 flex items-center justify-center text-white shadow-lg">
+<span class="material-symbols-outlined text-4xl" data-icon="apartment">apartment</span>
+</div>
+<div class="flex-1 space-y-2">
+<div class="inline-flex items-center px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">Active Assignment</div>
+<h2 class="text-xl md:text-2xl font-black text-on-surface leading-tight">Block-A Residential Complex</h2>
+<div class="flex flex-wrap gap-4 text-sm text-on-surface-variant">
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]" data-icon="location_on">location_on</span> North Sector, Plot 42</span>
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]" data-icon="schedule">schedule</span> Phase 2: Structural Framing</span>
+</div>
+</div>
+<button class="w-full md:w-auto px-6 py-3 bg-primary text-white font-bold rounded-lg shadow-md hover:bg-primary-container transition-all active:scale-95">
+                    View Details
+                </button>
+</div>
+</section>
+<!-- Quick Stats Row -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Stat 1 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</div>
+<div>
+<p class="text-[11px] font-medium text-on-surface-variant uppercase tracking-wide">Logs This Week</p>
+<p class="text-[28px] font-bold text-on-surface leading-none">4</p>
+</div>
+</div>
+<!-- Stat 2 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-secondary-container/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="pending">pending</span>
+</div>
+<div>
+<p class="text-[11px] font-medium text-on-surface-variant uppercase tracking-wide">Today's Status</p>
+<div class="flex items-center gap-1.5">
+<span class="text-[24px] font-bold text-on-surface leading-none">Pending</span>
+<span class="material-symbols-outlined text-secondary text-[20px]" data-icon="schedule">schedule</span>
+</div>
+</div>
+</div>
+<!-- Stat 3 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl flex items-center gap-4 border-l-4 border-tertiary-container">
+<div class="w-12 h-12 rounded-lg bg-tertiary-container/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined" data-icon="warning_amber">warning_amber</span>
+</div>
+<div>
+<p class="text-[11px] font-medium text-on-surface-variant uppercase tracking-wide">Deviations</p>
+<p class="text-[28px] font-bold text-tertiary leading-none">1 <span class="text-sm font-medium text-on-surface-variant tracking-normal">flagged</span></p>
+</div>
+</div>
+</section>
+<!-- Main Content Area: Recent Logs & AI -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Left Column: Recent Entries -->
+<div class="lg:col-span-2 space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="text-[16px] font-semibold text-primary-container">Recent Entries</h3>
+<button class="text-sm font-bold text-primary hover:underline">See All</button>
+</div>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden">
+<!-- Entry 1 -->
+<div class="p-4 border-b border-surface-container flex items-start gap-4">
+<div class="text-center min-w-[50px]">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Oct</p>
+<p class="text-xl font-black text-on-surface">23</p>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-on-surface">Concrete Pouring - Level 4</h4>
+<p class="text-sm text-on-surface-variant">350m³ Grade C35/45, 12 workers, 8 hours</p>
+</div>
+<div class="bg-surface-container-highest px-3 py-1 rounded-full text-[10px] font-bold">VERIFIED</div>
+</div>
+<!-- Entry 2 -->
+<div class="p-4 border-b border-surface-container flex items-start gap-4">
+<div class="text-center min-w-[50px]">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase">Oct</p>
+<p class="text-xl font-black text-on-surface">22</p>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-on-surface">Steel Reinforcement Delivery</h4>
+<p class="text-sm text-on-surface-variant">15 Tons rebar, 3 delivery trucks, checked specs</p>
+</div>
+<div class="bg-surface-container-highest px-3 py-1 rounded-full text-[10px] font-bold">VERIFIED</div>
+</div>
+<!-- Entry 3 (Deviation Mentioned in Stats) -->
+<div class="p-4 flex items-start gap-4 bg-tertiary-container/5">
+<div class="text-center min-w-[50px]">
+<p class="text-[10px] font-bold text-tertiary-container uppercase">Oct</p>
+<p class="text-xl font-black text-tertiary">21</p>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-tertiary">Material Defect Flagged</h4>
+<p class="text-sm text-on-surface-variant">Batch #882 Insulation foam failed thermal test</p>
+</div>
+<div class="bg-tertiary-container text-white px-3 py-1 rounded-full text-[10px] font-bold">ACTION REQ</div>
+</div>
+</div>
+</div>
+<!-- Right Column: AI Assistant & Empty State Help -->
+<div class="space-y-6">
+<!-- AI Assistant Shortcut -->
+<div class="bg-primary p-6 rounded-xl text-white shadow-xl relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-[120px]" data-icon="smart_toy">smart_toy</span>
+</div>
+<div class="relative z-10 flex flex-col gap-4">
+<div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+</div>
+<div>
+<h3 class="text-lg font-bold">Ask the AI Assistant</h3>
+<p class="text-sm text-blue-100/80">Get insights about your project specs or safety guidelines instantly.</p>
+</div>
+<button class="w-full py-2 bg-white text-primary font-bold rounded-lg text-sm hover:bg-blue-50 transition-colors">Start Chat</button>
+</div>
+</div>
+<!-- Guidance/Tips -->
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col items-center text-center space-y-3">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant/40" data-icon="construction">construction</span>
+<h4 class="text-sm font-bold text-on-surface">Quick Tip</h4>
+<p class="text-xs text-on-surface-variant leading-relaxed">Don't forget to upload today's site photos with your resource log for automated visual verification.</p>
+</div>
+</div>
+</div>
+<!-- Shimmer Loading State Example (Simulated below content) -->
+<div aria-hidden="true" class="py-8 space-y-4 opacity-40 select-none pointer-events-none">
+<div class="h-4 w-32 bg-surface-container-highest rounded-full animate-pulse"></div>
+<div class="h-24 w-full bg-surface-container-highest rounded-xl animate-pulse"></div>
+</div>
+</main>
+<!-- Floating Action Button -->
+<div class="fixed bottom-24 right-6 z-40">
+<button class="flex items-center gap-3 bg-[#1A56A0] text-white pl-4 pr-6 py-4 rounded-full shadow-[0_8px_24px_rgba(26,86,160,0.3)] hover:scale-105 active:scale-95 transition-all group">
+<span class="material-symbols-outlined text-[28px] font-bold" data-icon="add">add</span>
+<span class="font-bold tracking-tight">Log Today's Resources</span>
+</button>
+</div>
+<!-- BottomNavBar -->
+<nav class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 shadow-[0_-4px_12px_rgba(25,28,30,0.04)]">
+<!-- Home (Active) -->
+<a class="flex flex-col items-center justify-center bg-[#1a56a0] text-white rounded-xl px-4 py-1 scale-95 duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined filled-icon" data-icon="dashboard">dashboard</span>
+<span class="font-['Inter'] text-[11px] font-medium">Home</span>
+</a>
+<!-- Projects -->
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 px-4 py-1 hover:text-[#003e7e] dark:hover:text-blue-300" href="#">
+<span class="material-symbols-outlined" data-icon="apartment">apartment</span>
+<span class="font-['Inter'] text-[11px] font-medium">Projects</span>
+</a>
+<!-- AI Assistant -->
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 px-4 py-1 hover:text-[#003e7e] dark:hover:text-blue-300" href="#">
+<span class="material-symbols-outlined" data-icon="smart_toy">smart_toy</span>
+<span class="font-['Inter'] text-[11px] font-medium">AI Assistant</span>
+</a>
+<!-- Reports (Suppressed/Hidden per Role Prompt Logic - Keeping placeholder structure for layout integrity but visually subtle or using alternate) -->
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 px-4 py-1 hover:text-[#003e7e] dark:hover:text-blue-300 opacity-30 grayscale pointer-events-none" href="#">
+<span class="material-symbols-outlined" data-icon="picture_as_pdf">picture_as_pdf</span>
+<span class="font-['Inter'] text-[11px] font-medium">Reports</span>
+</a>
+</nav>
+<!-- Content Overlays (Empty State Mockup) -->
+<div class="hidden flex flex-col items-center justify-center py-20">
+<div class="w-32 h-32 bg-surface-container flex items-center justify-center rounded-full mb-4">
+<span class="material-symbols-outlined text-6xl text-on-surface-variant/20" data-icon="construction">construction</span>
+</div>
+<p class="text-on-surface-variant font-medium">No tasks assigned for this date.</p>
+</div>
+</body></html>

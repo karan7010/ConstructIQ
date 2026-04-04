@@ -1,0 +1,64 @@
+# ConstructIQ - Unified Project .gitignore
+
+# IDE and OS
+.vscode/
+.idea/
+.history/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Flutter (construction_flutter_app)
+construction_flutter_app/.dart_tool/
+construction_flutter_app/build/
+construction_flutter_app/.flutter-plugins
+construction_flutter_app/.flutter-plugins-dependencies
+construction_flutter_app/.pub-cache/
+construction_flutter_app/android/app/debug/
+construction_flutter_app/android/app/profile/
+construction_flutter_app/android/app/release/
+construction_flutter_app/ios/Flutter/.last_build_id
+construction_flutter_app/ios/Pods/
+
+# Python / AI Backend (construction-ai-service)
+construction-ai-service/__pycache__/
+construction-ai-service/venv/
+construction-ai-service/env/
+construction-ai-service/.venv/
+construction-ai-service/*.py[cod]
+construction-ai-service/*.pkl
+construction-ai-service/*.joblib
+construction-ai-service/chroma_db/
+construction-ai-service/dist/
+construction-ai-service/build/
+construction-ai-service/*.egg-info/
+
+# Global Secrets and Environment
+.env
+.env.*
+firebase-service-account.json
+# Important: Do not ignore package.json/pubspec.yaml
+!package.json
+!pubspec.yaml
+
+# AI and Agent Artifacts
+.claude/
+.code-review-graph/
+.cursor/
+.opencode.json
+.mcp.json
+Debugging AI Backend Service.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+walkthrough.md
+task.md
+implementation_plan.md
+code_review_graph.md
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

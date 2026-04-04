@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Log for Block-A | ConstructIQ</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-fixed": "#2a1700",
+              "surface": "#f7f9fc",
+              "on-primary": "#ffffff",
+              "surface-bright": "#f7f9fc",
+              "primary-container": "#1a56a0",
+              "primary-fixed": "#d6e3ff",
+              "on-secondary-container": "#684000",
+              "tertiary": "#850009",
+              "primary": "#003e7e",
+              "inverse-surface": "#2d3133",
+              "on-primary-container": "#b3cdff",
+              "tertiary-container": "#b10010",
+              "on-background": "#191c1e",
+              "on-tertiary": "#ffffff",
+              "surface-container-highest": "#e0e3e6",
+              "surface-container-low": "#f2f4f7",
+              "on-error-container": "#93000a",
+              "outline": "#737782",
+              "tertiary-fixed": "#ffdad6",
+              "secondary-fixed": "#ffddb8",
+              "surface-container": "#eceef1",
+              "surface-tint": "#265ea8",
+              "on-surface-variant": "#424751",
+              "on-secondary": "#ffffff",
+              "secondary": "#855300",
+              "on-tertiary-fixed": "#410002",
+              "on-tertiary-container": "#ffbcb4",
+              "primary-fixed-dim": "#a9c7ff",
+              "background": "#f7f9fc",
+              "surface-variant": "#e0e3e6",
+              "error": "#ba1a1a",
+              "on-error": "#ffffff",
+              "inverse-on-surface": "#eff1f4",
+              "on-tertiary-fixed-variant": "#93000b",
+              "on-surface": "#191c1e",
+              "outline-variant": "#c2c6d3",
+              "secondary-container": "#fea619",
+              "surface-dim": "#d8dadd",
+              "on-primary-fixed-variant": "#00468c",
+              "on-secondary-fixed-variant": "#653e00",
+              "on-primary-fixed": "#001b3d",
+              "inverse-primary": "#a9c7ff",
+              "error-container": "#ffdad6",
+              "surface-container-high": "#e6e8eb",
+              "secondary-fixed-dim": "#ffb95f",
+              "tertiary-fixed-dim": "#ffb4ab",
+              "surface-container-lowest": "#ffffff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#f7f9fc] dark:bg-slate-900 sticky top-0 z-50 flex justify-between items-center w-full px-6 py-3">
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-[#e6e8eb] dark:hover:bg-slate-800 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined text-[#003e7e] dark:text-blue-400">arrow_back</span>
+</button>
+<h1 class="font-['Inter'] headline-sm font-bold text-[#191c1e] dark:text-slate-100">Daily Log</h1>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden">
+<img alt="User" class="w-full h-full object-cover" data-alt="Close up portrait of a professional site engineer wearing a white hard hat and safety vest, soft natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBa-R-Njzi6fVs7PhjtB57QiObK1ee56aRGxzldty10O80E2aQoMTqYDQZVgk7Tkb4XMkHlBvuTHKDWLqQzbXS3ed_KbKQZOL5rb5iEuLh5bsUMkAatDd1PMpA4mMQK3GEgxYf0KF3fNG3lzk36BHt3hokRpwfjiP570D0YVHrUOGRNMD1rRXfDixfqkQGxw5xrxEo73wb_Z0DJcYsF-6OkghI01IGE18M9Z-F_o1X6RW00Nq8ZvppMUpuohymw_EOxR1s0dQ1QB7TC"/>
+</div>
+<span class="material-symbols-outlined text-[#003e7e] dark:text-blue-400">notifications</span>
+</div>
+</header>
+<main class="max-w-4xl mx-auto px-6 py-6 space-y-8">
+<!-- Header Info Section -->
+<section class="space-y-4">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h2 class="text-[#003e7e] font-bold text-2xl tracking-tight">Log for Block-A</h2>
+<p class="text-on-surface-variant font-medium">Phase 2: Structural Reinforcement</p>
+</div>
+<div class="flex items-center gap-3 bg-surface-container-low p-2 rounded-xl">
+<span class="material-symbols-outlined text-primary">calendar_today</span>
+<span class="font-bold text-on-surface">Oct 24, 2023 (Today)</span>
+<span class="material-symbols-outlined text-outline">expand_more</span>
+</div>
+</div>
+<!-- Weather Chips -->
+<div class="flex flex-wrap gap-2">
+<button class="flex items-center gap-2 px-4 py-2 bg-secondary-container text-on-secondary-fixed rounded-full font-bold shadow-sm transition-transform active:scale-95">
+<span class="material-symbols-outlined">sunny</span>
+<span>Sunny</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-full font-medium hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined">cloudy</span>
+<span>Cloudy</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-full font-medium hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined">rainy</span>
+<span>Rainy</span>
+</button>
+</div>
+</section>
+<!-- Materials Section -->
+<section class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">inventory_2</span>
+<h3 class="text-primary-container font-semibold text-base uppercase tracking-wider">Materials Consumption</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Material Card 1 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-[0_12px_32px_rgba(25,28,30,0.06)] flex items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl">conveyor_belt</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Cement (PPC)</h4>
+<p class="text-xs text-on-surface-variant">Est: ~38 bags</p>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<div class="flex items-center bg-surface-container-highest rounded-lg px-2 focus-within:ring-2 focus-within:ring-primary transition-all">
+<input class="w-16 bg-transparent border-none focus:ring-0 text-right font-black text-xl p-3" placeholder="42" type="number" value="42"/>
+<span class="text-xs font-bold text-outline-variant pr-2">bags</span>
+</div>
+<span class="text-[10px] text-tertiary font-bold mt-1">Exceeds estimate (1.1x)</span>
+</div>
+</div>
+<!-- Material Card 2 (Warning State) -->
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-[0_12px_32px_rgba(25,28,30,0.06)] flex items-center justify-between gap-4 border-2 border-secondary-container/30">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl">architecture</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Steel Rebar 12mm</h4>
+<p class="text-xs text-on-surface-variant">Est: ~120 nos</p>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<div class="flex items-center bg-secondary-container/10 border-2 border-secondary-container rounded-lg px-2 focus-within:ring-2 focus-within:ring-secondary transition-all">
+<input class="w-16 bg-transparent border-none focus:ring-0 text-right font-black text-xl p-3 text-on-secondary-fixed" placeholder="150" type="number" value="150"/>
+<span class="text-xs font-bold text-on-secondary-fixed-variant pr-2">nos</span>
+</div>
+<span class="text-[10px] text-on-secondary-fixed-variant font-bold mt-1">Over 1.2x limit</span>
+</div>
+</div>
+<!-- Material Card 3 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-[0_12px_32px_rgba(25,28,30,0.06)] flex items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl">water_drop</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Admixture</h4>
+<p class="text-xs text-on-surface-variant">Est: ~15 kg</p>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<div class="flex items-center bg-surface-container-highest rounded-lg px-2 focus-within:ring-2 focus-within:ring-primary transition-all">
+<input class="w-16 bg-transparent border-none focus:ring-0 text-right font-black text-xl p-3" placeholder="14" type="number" value="14"/>
+<span class="text-xs font-bold text-outline-variant pr-2">kg</span>
+</div>
+</div>
+</div>
+<!-- Material Card 4 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl shadow-[0_12px_32px_rgba(25,28,30,0.06)] flex items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl">texture</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">River Sand</h4>
+<p class="text-xs text-on-surface-variant">Est: ~4.5 m³</p>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<div class="flex items-center bg-surface-container-highest rounded-lg px-2 focus-within:ring-2 focus-within:ring-primary transition-all">
+<input class="w-16 bg-transparent border-none focus:ring-0 text-right font-black text-xl p-3" placeholder="4.2" step="0.1" type="number" value="4.2"/>
+<span class="text-xs font-bold text-outline-variant pr-2">m³</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Equipment Section -->
+<section class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">construction</span>
+<h3 class="text-primary-container font-semibold text-base uppercase tracking-wider">Equipment Utilization</h3>
+</div>
+<div class="bg-surface-container-low rounded-xl overflow-hidden shadow-sm">
+<div class="grid grid-cols-1 divide-y divide-outline-variant/10">
+<!-- Row: Excavator -->
+<div class="p-4 md:flex md:items-center md:justify-between gap-6">
+<div class="flex items-center gap-4 mb-4 md:mb-0 min-w-[180px]">
+<span class="material-symbols-outlined text-primary bg-white p-2 rounded-lg">agriculture</span>
+<div>
+<h4 class="font-bold">Excavator E-04</h4>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant">Heavy Duty</span>
+</div>
+</div>
+<div class="flex gap-4 items-center">
+<div class="flex-1">
+<label class="block text-[10px] font-bold text-outline uppercase mb-1">Used hrs</label>
+<input class="w-full h-14 bg-white border-none rounded-lg font-black text-lg px-4 focus:ring-2 focus:ring-primary" type="number" value="6.5"/>
+</div>
+<div class="flex-1">
+<label class="block text-[10px] font-bold text-outline uppercase mb-1">Idle hrs</label>
+<input class="w-full h-14 bg-white border-none rounded-lg font-black text-lg px-4 focus:ring-2 focus:ring-primary" type="number" value="1.5"/>
+</div>
+<div class="min-w-[80px] text-right">
+<p class="text-[10px] font-bold text-outline uppercase mb-1">Idle Ratio</p>
+<span class="text-emerald-600 font-black text-lg">18%</span>
+</div>
+</div>
+</div>
+<!-- Row: Crane -->
+<div class="p-4 md:flex md:items-center md:justify-between gap-6">
+<div class="flex items-center gap-4 mb-4 md:mb-0 min-w-[180px]">
+<span class="material-symbols-outlined text-primary bg-white p-2 rounded-lg">precision_manufacturing</span>
+<div>
+<h4 class="font-bold">Tower Crane C-01</h4>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant">Lifting</span>
+</div>
+</div>
+<div class="flex gap-4 items-center">
+<div class="flex-1">
+<label class="block text-[10px] font-bold text-outline uppercase mb-1">Used hrs</label>
+<input class="w-full h-14 bg-white border-none rounded-lg font-black text-lg px-4 focus:ring-2 focus:ring-primary" type="number" value="4.0"/>
+</div>
+<div class="flex-1">
+<label class="block text-[10px] font-bold text-outline uppercase mb-1">Idle hrs</label>
+<input class="w-full h-14 bg-white border-none rounded-lg font-black text-lg px-4 focus:ring-2 focus:ring-primary" type="number" value="4.0"/>
+</div>
+<div class="min-w-[80px] text-right">
+<p class="text-[10px] font-bold text-outline uppercase mb-1">Idle Ratio</p>
+<span class="text-tertiary font-black text-lg">50%</span>
+</div>
+</div>
+</div>
+<!-- Row: Mixer -->
+<div class="p-4 md:flex md:items-center md:justify-between gap-6">
+<div class="flex items-center gap-4 mb-4 md:mb-0 min-w-[180px]">
+<span class="material-symbols-outlined text-primary bg-white p-2 rounded-lg">cyclone</span>
+<div>
+<h4 class="font-bold">Concrete Mixer M-12</h4>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant">Transit</span>
+</div>
+</div>
+<div class="flex gap-4 items-center">
+<div class="flex-1">
+<label class="block text-[10px] font-bold text-outline uppercase mb-1">Used hrs</label>
+<input class="w-full h-14 bg-white border-none rounded-lg font-black text-lg px-4 focus:ring-2 focus:ring-primary" type="number" value="8.0"/>
+</div>
+<div class="flex-1">
+<label class="block text-[10px] font-bold text-outline uppercase mb-1">Idle hrs</label>
+<input class="w-full h-14 bg-white border-none rounded-lg font-black text-lg px-4 focus:ring-2 focus:ring-primary" type="number" value="0.0"/>
+</div>
+<div class="min-w-[80px] text-right">
+<p class="text-[10px] font-bold text-outline uppercase mb-1">Idle Ratio</p>
+<span class="text-emerald-600 font-black text-lg">0%</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Notes Section -->
+<section class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">edit_note</span>
+<h3 class="text-primary-container font-semibold text-base uppercase tracking-wider">Observations &amp; Issues</h3>
+</div>
+<textarea class="w-full h-32 bg-surface-container-highest border-none rounded-xl p-4 font-medium focus:ring-2 focus:ring-primary transition-all resize-none" placeholder="Any observations or issues? E.g. Late delivery of sand, labor shortage in Block-A..."></textarea>
+</section>
+<!-- Submit and Offline Hint -->
+<section class="space-y-4 pt-4">
+<button class="w-full bg-[#1A56A0] text-white py-5 rounded-xl font-black text-lg shadow-lg hover:shadow-xl hover:bg-primary transition-all flex items-center justify-center gap-3">
+<span>SUBMIT DAILY LOG</span>
+<span class="material-symbols-outlined">send</span>
+</button>
+<div class="flex items-center justify-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">wifi_off</span>
+<p class="text-xs font-medium italic">Offline? Your log will sync when connected.</p>
+</div>
+</section>
+</main>
+<!-- Shimmer Loader (Hidden by default, used for state transitions) -->
+<div class="fixed inset-0 bg-white/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center">
+<div class="w-64 h-2 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-primary-container animate-[shimmer_2s_infinite] w-full" style="background: linear-gradient(90deg, #f2f4f7 25%, #1a56a0 50%, #f2f4f7 75%); background-size: 200% 100%;"></div>
+</div>
+</div>
+</body></html>

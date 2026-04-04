@@ -1,0 +1,10 @@
+# Construction Site Safety & Material Standards (Sample)
+## Masonry Work (IS 2212)
+- Bricks should be soaked in clean water for at least 2 hours before use.
+- Mortar for load-bearing walls should be 1:6 (Cement:Sand).
+- Verticality of walls must be checked every 1 meter of height.
+
+## RCC Standards (IS 456)
+- Concrete cover for beams should be 25mm.
+- Curing for RCC slabs must continue for at least 7 days.
+- Maximum drop height for concrete during pouring is 1.5 meters.

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ConstructIQ - Sign In</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface": "#191c1e",
+              "inverse-primary": "#a9c7ff",
+              "secondary-fixed-dim": "#ffb95f",
+              "on-background": "#191c1e",
+              "surface-container-low": "#f2f4f7",
+              "on-tertiary-container": "#ffbcb4",
+              "surface-container": "#eceef1",
+              "on-secondary": "#ffffff",
+              "inverse-surface": "#2d3133",
+              "primary-fixed": "#d6e3ff",
+              "tertiary-fixed-dim": "#ffb4ab",
+              "tertiary": "#850009",
+              "surface-dim": "#d8dadd",
+              "primary-container": "#1a56a0",
+              "surface-bright": "#f7f9fc",
+              "secondary-fixed": "#ffddb8",
+              "on-tertiary-fixed-variant": "#93000b",
+              "outline-variant": "#c2c6d3",
+              "secondary-container": "#fea619",
+              "outline": "#737782",
+              "on-secondary-fixed-variant": "#653e00",
+              "background": "#f7f9fc",
+              "surface-container-highest": "#e0e3e6",
+              "on-secondary-container": "#684000",
+              "on-secondary-fixed": "#2a1700",
+              "on-error": "#ffffff",
+              "surface-variant": "#e0e3e6",
+              "primary-fixed-dim": "#a9c7ff",
+              "tertiary-fixed": "#ffdad6",
+              "surface": "#f7f9fc",
+              "on-tertiary-fixed": "#410002",
+              "on-primary-container": "#b3cdff",
+              "on-primary-fixed": "#001b3d",
+              "on-primary": "#ffffff",
+              "on-primary-fixed-variant": "#00468c",
+              "error": "#ba1a1a",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-high": "#e6e8eb",
+              "secondary": "#855300",
+              "on-tertiary": "#ffffff",
+              "primary": "#003e7e",
+              "tertiary-container": "#b10010",
+              "surface-tint": "#265ea8",
+              "on-error-container": "#93000a",
+              "error-container": "#ffdad6",
+              "on-surface-variant": "#424751",
+              "inverse-on-surface": "#eff1f4"
+            },
+            fontFamily: {
+              "headline": ["Inter", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "label": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .form-input-focus:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #003e7e;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#f7f9fc] font-body text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed min-h-screen flex flex-col">
+<!-- Navigation Suppressed for Transactional Page as per Shell Visibility Rule -->
+<main class="flex-grow overflow-y-auto px-6 py-8 flex flex-col items-center justify-center">
+<!-- Header Section -->
+<div class="w-full max-w-md mb-8">
+<button class="mb-6 flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors group">
+<span class="material-symbols-outlined text-[20px] transition-transform group-hover:-translate-x-1">arrow_back</span>
+</button>
+<div class="flex flex-col items-center text-center">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-[#1a56a0] text-3xl" style="font-variation-settings: 'FILL' 1;">architecture</span>
+<h1 class="font-headline font-bold text-2xl tracking-tighter text-[#1a56a0]">ConstructIQ</h1>
+</div>
+<p class="font-body text-[#424751] text-sm">Sign in to your account</p>
+</div>
+</div>
+<!-- Form Card Section -->
+<div class="w-full max-w-md bg-white rounded-xl overflow-hidden shadow-[0_12px_32px_rgba(25,28,30,0.06)] border border-outline-variant/15 p-8">
+<form action="#" class="space-y-6" method="POST">
+<!-- Email Field -->
+<div class="space-y-2">
+<label class="font-label text-xs font-semibold text-on-surface-variant tracking-wide block" for="email">EMAIL ADDRESS</label>
+<div class="relative group">
+<input class="w-full h-14 px-4 bg-surface-container-highest rounded-lg border-none text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary transition-all" id="email" name="email" placeholder="name@company.com" type="email"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary">mail</span>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<label class="font-label text-xs font-semibold text-on-surface-variant tracking-wide" for="password">PASSWORD</label>
+<a class="font-label text-xs font-medium text-primary hover:underline transition-all" href="#">Forgot Password?</a>
+</div>
+<div class="relative group">
+<input class="w-full h-14 px-4 bg-surface-container-highest rounded-lg border-none text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary transition-all" id="password" name="password" placeholder="••••••••" type="password"/>
+<button class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant" type="button">visibility</button>
+</div>
+</div>
+<!-- Sign In Action -->
+<button class="w-full h-14 bg-primary text-on-primary font-semibold rounded-lg flex items-center justify-center gap-2 hover:bg-primary-container active:scale-[0.98] transition-all duration-200 shadow-md" type="submit">
+<span>Sign In</span>
+<span class="material-symbols-outlined text-[20px]">login</span>
+</button>
+</form>
+<!-- Divider -->
+<div class="relative my-8 flex items-center">
+<div class="flex-grow border-t border-outline-variant/30"></div>
+<span class="px-4 font-label text-[11px] text-outline uppercase tracking-[0.1em] bg-white">or continue with</span>
+<div class="flex-grow border-t border-outline-variant/30"></div>
+</div>
+<!-- Social Action -->
+<button class="w-full h-14 bg-white border border-outline-variant text-on-surface font-semibold rounded-lg flex items-center justify-center gap-3 hover:bg-surface-container-low active:scale-[0.98] transition-all duration-200" type="button">
+<svg height="20" viewbox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg">
+<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"></path>
+<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+</svg>
+<span>Continue with Google</span>
+</button>
+</div>
+<!-- Footer Link Section -->
+<div class="mt-8 text-center">
+<p class="font-body text-on-surface-variant text-sm">
+                Don't have an account? 
+                <a class="text-primary font-bold hover:underline transition-all ml-1" href="#">Register</a>
+</p>
+</div>
+</main>
+<!-- Structural Anchor Image Decoration (Asymmetric Layout) -->
+<div class="hidden lg:block fixed top-0 right-0 w-1/3 h-full overflow-hidden pointer-events-none">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent"></div>
+<img alt="high-angle architectural blueprint on construction site with technical precision instruments and blueprint rolls" class="h-full w-full object-cover opacity-20 grayscale mix-blend-multiply" data-alt="high-angle architectural blueprint on construction site with technical precision instruments and blueprint rolls in warm morning light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5quOy6CUFbtamynB2A9QTttxnbs5Os88TVBu3SgDaPMuFMZ6l3O99QgF8XkK7PqCWT_eMKho97RmvpkQ24_NWdvhkLAzUSBiffCoLRWgY6rWz8GZfkybRWHtQY0_8NEqQVebMP186V9WJ6KxTYnpWwXIZPOthV9cAlkPMPsxy-r-ih8mjdBeoFlXAGaXsxVy9qPPeOLIDZ05Xbzan_jsLks5UO07e-wMlg2z6uLdhUnWW1W8fo5SM1tGuQKii1BwXRKFLRl7ao1up"/>
+</div>
+<!-- Security Badge Section -->
+<footer class="py-6 px-6 flex justify-center items-center gap-4 text-outline">
+<div class="flex items-center gap-2 opacity-60">
+<span class="material-symbols-outlined text-[16px]">lock</span>
+<span class="font-label text-[10px] uppercase tracking-widest">Secure 256-bit SSL Encryption</span>
+</div>
+<div class="w-1 h-1 bg-outline-variant/30 rounded-full"></div>
+<div class="flex items-center gap-2 opacity-60">
+<span class="material-symbols-outlined text-[16px]">verified_user</span>
+<span class="font-label text-[10px] uppercase tracking-widest">ISO 27001 Certified</span>
+</div>
+</footer>
+</body></html>

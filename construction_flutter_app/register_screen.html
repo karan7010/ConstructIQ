@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Register - ConstructIQ</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface": "#191c1e",
+              "inverse-primary": "#a9c7ff",
+              "secondary-fixed-dim": "#ffb95f",
+              "on-background": "#191c1e",
+              "surface-container-low": "#f2f4f7",
+              "on-tertiary-container": "#ffbcb4",
+              "surface-container": "#eceef1",
+              "on-secondary": "#ffffff",
+              "inverse-surface": "#2d3133",
+              "primary-fixed": "#d6e3ff",
+              "tertiary-fixed-dim": "#ffb4ab",
+              "tertiary": "#850009",
+              "surface-dim": "#d8dadd",
+              "primary-container": "#1a56a0",
+              "surface-bright": "#f7f9fc",
+              "secondary-fixed": "#ffddb8",
+              "on-tertiary-fixed-variant": "#93000b",
+              "outline-variant": "#c2c6d3",
+              "secondary-container": "#fea619",
+              "outline": "#737782",
+              "on-secondary-fixed-variant": "#653e00",
+              "background": "#f7f9fc",
+              "surface-container-highest": "#e0e3e6",
+              "on-secondary-container": "#684000",
+              "on-secondary-fixed": "#2a1700",
+              "on-error": "#ffffff",
+              "surface-variant": "#e0e3e6",
+              "primary-fixed-dim": "#a9c7ff",
+              "tertiary-fixed": "#ffdad6",
+              "surface": "#f7f9fc",
+              "on-tertiary-fixed": "#410002",
+              "on-primary-container": "#b3cdff",
+              "on-primary-fixed": "#001b3d",
+              "on-primary": "#ffffff",
+              "on-primary-fixed-variant": "#00468c",
+              "error": "#ba1a1a",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-high": "#e6e8eb",
+              "secondary": "#855300",
+              "on-tertiary": "#ffffff",
+              "primary": "#003e7e",
+              "tertiary-container": "#b10010",
+              "surface-tint": "#265ea8",
+              "on-error-container": "#93000a",
+              "error-container": "#ffdad6",
+              "on-surface-variant": "#424751",
+              "inverse-on-surface": "#eff1f4"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .bg-grid-pattern {
+            background-image: radial-gradient(#c2c6d3 0.5px, transparent 0.5px);
+            background-size: 24px 24px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#F4F6F9] min-h-screen font-body text-on-surface flex flex-col items-center">
+<!-- Top Navigation Anchor (Suppressing Full Nav for Transactional Screen) -->
+<header class="w-full h-16 flex justify-between items-center px-6 bg-[#f7f9fc] dark:bg-slate-950 backdrop-blur-md bg-opacity-80 sticky top-0 z-50">
+<div class="text-xl font-bold tracking-tighter text-[#003e7e] dark:text-blue-500">
+            ConstructIQ
+        </div>
+<div class="flex items-center gap-2">
+<span class="text-xs font-medium text-on-surface-variant uppercase tracking-widest">v2.4.0</span>
+</div>
+</header>
+<!-- Main Registration Canvas -->
+<main class="w-full max-w-xl px-6 py-12 flex-grow overflow-y-auto">
+<!-- Header Section -->
+<div class="mb-10 text-center">
+<h1 class="text-3xl font-extrabold tracking-tight text-on-surface mb-2">Create Account</h1>
+<p class="text-on-surface-variant body-md max-w-sm mx-auto">
+                Join the industrial ecosystem where engineering precision meets editorial data clarity.
+            </p>
+</div>
+<!-- Registration Card (DFCard Pattern) -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_12px_32px_rgba(25,28,30,0.06)] p-8 md:p-10 border border-outline-variant/10">
+<form class="space-y-6">
+<!-- Personal Info Section -->
+<div class="grid grid-cols-1 gap-5">
+<div class="space-y-2">
+<label class="text-[11px] font-semibold uppercase tracking-wider text-primary-container block">Full Name</label>
+<div class="relative">
+<input class="w-full bg-surface-container-highest border-0 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-primary transition-all placeholder:text-outline" placeholder="e.g. Marcus Aurelius" required="" type="text"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-[11px] font-semibold uppercase tracking-wider text-primary-container block">Email Address</label>
+<input class="w-full bg-surface-container-highest border-0 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-primary transition-all placeholder:text-outline" placeholder="m.aurelius@constructiq.com" required="" type="email"/>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+<div class="space-y-2">
+<label class="text-[11px] font-semibold uppercase tracking-wider text-primary-container block">Password</label>
+<input class="w-full bg-surface-container-highest border-0 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-primary transition-all placeholder:text-outline" placeholder="••••••••" required="" type="password"/>
+</div>
+<div class="space-y-2">
+<label class="text-[11px] font-semibold uppercase tracking-wider text-primary-container block">Confirm Password</label>
+<input class="w-full bg-surface-container-highest border-0 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-primary transition-all placeholder:text-outline" placeholder="••••••••" required="" type="password"/>
+</div>
+</div>
+</div>
+<!-- Role Selector (Pill Toggle Buttons) -->
+<div class="space-y-4 pt-4">
+<label class="text-[11px] font-semibold uppercase tracking-wider text-primary-container block">Select Your Role</label>
+<div class="flex flex-wrap gap-3">
+<!-- Role: Engineer (Unselected) -->
+<button class="flex-1 min-w-[100px] py-2 px-4 rounded-full border border-primary text-primary text-xs font-bold uppercase tracking-widest bg-surface-container-lowest hover:bg-surface-container-high transition-all" type="button">
+                            Engineer
+                        </button>
+<!-- Role: Manager (Selected) -->
+<button class="flex-1 min-w-[100px] py-2 px-4 rounded-full border border-primary-container bg-primary-container text-on-secondary text-xs font-bold uppercase tracking-widest shadow-md" type="button">
+                            Manager
+                        </button>
+<!-- Role: Admin (Unselected) -->
+<button class="flex-1 min-w-[100px] py-2 px-4 rounded-full border border-primary text-primary text-xs font-bold uppercase tracking-widest bg-surface-container-lowest hover:bg-surface-container-high transition-all" type="button">
+                            Admin
+                        </button>
+</div>
+</div>
+<!-- Access Key (Contextual Appearance) -->
+<div class="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+<label class="text-[11px] font-semibold uppercase tracking-wider text-primary-container block">Role Access Key</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">key</span>
+<input class="w-full bg-surface-container-highest border-0 rounded-lg pl-12 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary transition-all placeholder:text-outline" placeholder="Enter your team access key" required="" type="text"/>
+</div>
+<p class="text-[10px] text-on-surface-variant italic">Access keys are provided by your site supervisor or system administrator.</p>
+</div>
+<!-- Primary Action -->
+<div class="pt-6">
+<button class="w-full bg-primary hover:bg-primary-container text-white font-bold py-4 rounded-lg transition-all transform active:scale-[0.98] shadow-[0_8px_16px_rgba(0,62,126,0.15)] flex items-center justify-center gap-2" type="submit">
+<span>CREATE ACCOUNT</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+<!-- Footer Link -->
+<div class="text-center pt-4">
+<a class="text-sm font-medium text-primary hover:text-primary-container transition-colors" href="#">
+                        Already registered? <span class="underline underline-offset-4 decoration-2">Sign In</span>
+</a>
+</div>
+</form>
+</div>
+<!-- System Meta Info -->
+<div class="mt-12 grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/10">
+<div class="flex items-center gap-3 mb-1">
+<span class="material-symbols-outlined text-primary text-sm">verified_user</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Security</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">End-to-end encrypted industrial data protocols.</p>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/10">
+<div class="flex items-center gap-3 mb-1">
+<span class="material-symbols-outlined text-primary text-sm">cloud_sync</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Sync</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">Real-time collaboration across site locations.</p>
+</div>
+</div>
+</main>
+<!-- Visual Anchor / Background Element -->
+<div class="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+<div class="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#003e7e]/5 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-5%] left-[-5%] w-[40%] h-[40%] bg-[#1a56a0]/5 rounded-full blur-[100px]"></div>
+<div class="absolute inset-0 bg-grid-pattern opacity-[0.03]"></div>
+</div>
+<!-- Minimalistic Footer -->
+<footer class="w-full py-8 px-6 text-center text-outline text-[11px] font-medium uppercase tracking-[0.2em]">
+        © 2024 ConstructIQ Systems Corp. Precision Engineering.
+    </footer>
+</body></html>

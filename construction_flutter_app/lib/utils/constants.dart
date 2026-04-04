@@ -1,0 +1,12 @@
+import 'package:flutter/material.dart';
+
+class AppConstants {
+  static const String appName = 'Construction AI';
+  static const Color primaryColor = Colors.indigo;
+  
+  // Storage Keys
+  static const String userRoleKey = 'user_role';
+  
+  // API Endpoints (Placeholder)
+  static const String apiBaseUrl = 'http://10.0.2.2:8000'; // Maps to host localhost from Android emulator
+}

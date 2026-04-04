@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ConstructIQ - Manager Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary-fixed": "#2a1700",
+              "surface": "#f7f9fc",
+              "on-primary": "#ffffff",
+              "surface-bright": "#f7f9fc",
+              "primary-container": "#1a56a0",
+              "primary-fixed": "#d6e3ff",
+              "on-secondary-container": "#684000",
+              "tertiary": "#850009",
+              "primary": "#003e7e",
+              "inverse-surface": "#2d3133",
+              "on-primary-container": "#b3cdff",
+              "tertiary-container": "#b10010",
+              "on-background": "#191c1e",
+              "on-tertiary": "#ffffff",
+              "surface-container-highest": "#e0e3e6",
+              "surface-container-low": "#f2f4f7",
+              "on-error-container": "#93000a",
+              "outline": "#737782",
+              "tertiary-fixed": "#ffdad6",
+              "secondary-fixed": "#ffddb8",
+              "surface-container": "#eceef1",
+              "surface-tint": "#265ea8",
+              "on-surface-variant": "#424751",
+              "on-secondary": "#ffffff",
+              "secondary": "#855300",
+              "on-tertiary-fixed": "#410002",
+              "on-tertiary-container": "#ffbcb4",
+              "primary-fixed-dim": "#a9c7ff",
+              "background": "#f7f9fc",
+              "surface-variant": "#e0e3e6",
+              "error": "#ba1a1a",
+              "on-error": "#ffffff",
+              "inverse-on-surface": "#eff1f4",
+              "on-tertiary-fixed-variant": "#93000b",
+              "on-surface": "#191c1e",
+              "outline-variant": "#c2c6d3",
+              "secondary-container": "#fea619",
+              "surface-dim": "#d8dadd",
+              "on-primary-fixed-variant": "#00468c",
+              "on-secondary-fixed-variant": "#653e00",
+              "on-primary-fixed": "#001b3d",
+              "inverse-primary": "#a9c7ff",
+              "error-container": "#ffdad6",
+              "surface-container-high": "#e6e8eb",
+              "secondary-fixed-dim": "#ffb95f",
+              "tertiary-fixed-dim": "#ffb4ab",
+              "surface-container-lowest": "#ffffff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; color: #191c1e; }
+      .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#f7f9fc] dark:bg-slate-900 sticky top-0 z-50 flex justify-between items-center w-full px-6 py-3">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center overflow-hidden border-2 border-white">
+<img class="w-full h-full object-cover" data-alt="Close-up professional portrait of a male construction project manager in business attire with soft indoor lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxGM3di5FF8IXfyiwharCrvBQhkRBJnzhBm4BH87woU4huCtG0aqk1oInL0Bm3Ldc2_yi4HtxRbxg_i4cGeZpucp41ddvA5DXdZYs5Q_0Rt0bVer_iZ4HA6t5TAHMon83LXgER73ZFaQA9KDOcNmplQgswhI_rxj_3K_FwnIx36rdFTkzj2nchWsoRfgxpRP0t-1v4Q7dAiIlT2FjLDD98cSiLp3X2_u3yNTzj9Xt_XnQJxF-ENxouEvzhwEb3gRdDHP026EWTduwb"/>
+</div>
+<span class="text-xl font-bold text-[#003e7e] dark:text-blue-400 font-headline">ConstructIQ</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="relative p-2 rounded-full hover:bg-[#e6e8eb] dark:hover:bg-slate-800 transition-colors duration-200">
+<span class="material-symbols-outlined text-[#003e7e] dark:text-blue-400">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-error rounded-full border-2 border-[#f7f9fc]"></span>
+</button>
+</div>
+</header>
+<main class="px-6 space-y-6 max-w-5xl mx-auto">
+<!-- Greeting Section -->
+<section class="mt-4">
+<h1 class="text-[24px] font-bold text-on-surface font-headline leading-tight">Good morning, Arjun</h1>
+<p class="text-[14px] text-on-surface-variant font-medium">Oct 24, 2026</p>
+</section>
+<!-- Summary Cards Row (Horizontal Scroll) -->
+<section class="flex gap-4 overflow-x-auto no-scrollbar py-2 -mx-6 px-6">
+<!-- Active Projects -->
+<div class="flex-shrink-0 w-40 h-32 rounded-xl bg-primary-container text-white p-4 flex flex-col justify-between shadow-[0_4px_12px_rgba(26,86,160,0.15)]">
+<span class="text-[11px] font-medium opacity-90">Active Projects</span>
+<span class="text-[36px] font-bold leading-none">6</span>
+</div>
+<!-- Warning -->
+<div class="flex-shrink-0 w-40 h-32 rounded-xl bg-secondary-container text-on-secondary-fixed p-4 flex flex-col justify-between shadow-[0_4px_12px_rgba(254,166,25,0.15)]">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+<span class="text-[11px] font-bold uppercase tracking-wider">Warning</span>
+</div>
+<span class="text-[36px] font-bold leading-none">2</span>
+</div>
+<!-- Critical -->
+<div class="flex-shrink-0 w-40 h-32 rounded-xl bg-tertiary-container text-white p-4 flex flex-col justify-between shadow-[0_4px_12px_rgba(177,0,16,0.15)]">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">error</span>
+<span class="text-[11px] font-bold uppercase tracking-wider">Critical</span>
+</div>
+<span class="text-[36px] font-bold leading-none">1</span>
+</div>
+<!-- Overrun Risk -->
+<div class="flex-shrink-0 w-40 h-32 rounded-xl bg-surface-container-lowest p-4 flex flex-col justify-between border border-outline-variant/20 shadow-[0_4px_12px_rgba(25,28,30,0.04)]">
+<span class="text-[11px] font-medium text-on-surface-variant">Avg Overrun Risk</span>
+<div class="flex flex-col">
+<span class="text-[28px] font-bold text-secondary leading-none">12.5%</span>
+<div class="w-full h-1 bg-surface-container rounded-full mt-2 overflow-hidden">
+<div class="bg-secondary h-full w-[12.5%]"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Material Trend Chart section -->
+<section class="space-y-4">
+<h2 class="text-[16px] font-semibold text-primary-container font-headline px-1">7-Day Cement Usage Trend</h2>
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-[0_12px_32px_rgba(25,28,30,0.06)]">
+<div class="flex justify-between items-center mb-6">
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-0.5 border-t-2 border-dashed border-primary-container"></span>
+<span class="text-[11px] text-on-surface-variant font-medium">Estimated</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-0.5 bg-secondary-container"></span>
+<span class="text-[11px] text-on-surface-variant font-medium">Actual</span>
+</div>
+</div>
+<span class="text-[11px] text-on-surface-variant font-bold">Bags</span>
+</div>
+<!-- SVG Visualization placeholder -->
+<div class="relative h-48 w-full flex items-end justify-between px-2 pt-4">
+<!-- Y-axis lines -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+<div class="w-full border-t border-surface-container-high"></div>
+<div class="w-full border-t border-surface-container-high"></div>
+<div class="w-full border-t border-surface-container-high"></div>
+<div class="w-full border-t border-surface-container-high"></div>
+</div>
+<!-- Simulated Data points & lines via SVG -->
+<svg class="absolute inset-0 w-full h-full overflow-visible" preserveaspectratio="none">
+<!-- Estimated Line (Dashed Blue) -->
+<path class="w-full" d="M 0 140 Q 50 120, 100 130 T 200 100 T 300 110 T 400 90 T 500 100" fill="none" stroke="#1a56a0" stroke-dasharray="4 4" stroke-width="2"></path>
+<!-- Actual Line (Solid Amber) -->
+<path d="M 0 150 Q 50 140, 100 120 T 200 130 T 300 110 T 400 140 T 500 120" fill="none" stroke="#fea619" stroke-width="3"></path>
+</svg>
+<!-- X-Axis Labels -->
+<div class="absolute -bottom-6 w-full flex justify-between text-[11px] text-on-surface-variant font-medium px-1">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Project Risk List section -->
+<section class="space-y-4 pb-12">
+<div class="flex justify-between items-center px-1">
+<h2 class="text-[16px] font-semibold text-primary-container font-headline">Project Status</h2>
+<button class="text-primary text-[12px] font-bold">View All</button>
+</div>
+<div class="grid gap-4">
+<!-- Project Card 1: Critical -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden flex flex-col shadow-[0_12px_32px_rgba(25,28,30,0.06)]">
+<div class="flex">
+<div class="w-1.5 bg-tertiary"></div>
+<div class="flex-1 p-4 flex justify-between items-start">
+<div class="space-y-0.5">
+<h3 class="text-[14px] font-bold text-on-surface">Skyline Apex Tower</h3>
+<p class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">location_on</span> Mumbai, District 4
+                                </p>
+</div>
+<span class="px-2.5 py-1 rounded-full bg-tertiary-container text-on-tertiary-fixed text-[10px] font-bold tracking-tight uppercase">CRITICAL</span>
+</div>
+</div>
+<div class="px-5 pb-4 space-y-3">
+<div class="space-y-1">
+<div class="flex justify-between text-[11px] font-medium">
+<span class="text-on-surface-variant">Progress (142 / 210 days)</span>
+<span class="text-on-surface">68%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="bg-tertiary h-full w-[68%]"></div>
+</div>
+</div>
+<div class="flex justify-between items-center pt-1 border-t border-surface-container-low">
+<span class="text-[11px] text-on-surface-variant">Overrun Probability</span>
+<div class="flex items-center gap-2">
+<span class="text-[12px] font-bold text-tertiary">84%</span>
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Project Card 2: Warning -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden flex flex-col shadow-[0_12px_32px_rgba(25,28,30,0.06)]">
+<div class="flex">
+<div class="w-1.5 bg-secondary-container"></div>
+<div class="flex-1 p-4 flex justify-between items-start">
+<div class="space-y-0.5">
+<h3 class="text-[14px] font-bold text-on-surface">Harbor Bridge Renovation</h3>
+<p class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">location_on</span> West Pier Area
+                                </p>
+</div>
+<span class="px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-fixed text-[10px] font-bold tracking-tight uppercase">WARNING</span>
+</div>
+</div>
+<div class="px-5 pb-4 space-y-3">
+<div class="space-y-1">
+<div class="flex justify-between text-[11px] font-medium">
+<span class="text-on-surface-variant">Progress (45 / 300 days)</span>
+<span class="text-on-surface">15%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="bg-secondary-container h-full w-[15%]"></div>
+</div>
+</div>
+<div class="flex justify-between items-center pt-1 border-t border-surface-container-low">
+<span class="text-[11px] text-on-surface-variant">Overrun Probability</span>
+<div class="flex items-center gap-2">
+<span class="text-[12px] font-bold text-secondary">32%</span>
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Project Card 3: Normal -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden flex flex-col shadow-[0_12px_32px_rgba(25,28,30,0.06)]">
+<div class="flex">
+<div class="w-1.5 bg-green-600"></div>
+<div class="flex-1 p-4 flex justify-between items-start">
+<div class="space-y-0.5">
+<h3 class="text-[14px] font-bold text-on-surface">Eco-Park Office Suite</h3>
+<p class="text-[11px] text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">location_on</span> Tech Enclave
+                                </p>
+</div>
+<span class="px-2.5 py-1 rounded-full bg-green-100 text-green-800 text-[10px] font-bold tracking-tight uppercase">NORMAL</span>
+</div>
+</div>
+<div class="px-5 pb-4 space-y-3">
+<div class="space-y-1">
+<div class="flex justify-between text-[11px] font-medium">
+<span class="text-on-surface-variant">Progress (89 / 120 days)</span>
+<span class="text-on-surface">74%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="bg-green-600 h-full w-[74%]"></div>
+</div>
+</div>
+<div class="flex justify-between items-center pt-1 border-t border-surface-container-low">
+<span class="text-[11px] text-on-surface-variant">Overrun Probability</span>
+<div class="flex items-center gap-2">
+<span class="text-[12px] font-bold text-green-700">4%</span>
+<span class="w-2 h-2 rounded-full bg-green-600"></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg shadow-[0_-4px_12px_rgba(25,28,30,0.04)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center bg-[#1a56a0] text-white rounded-xl px-4 py-1 transition-transform scale-95 duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-['Inter'] text-[11px] font-medium">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 px-4 py-1 hover:text-[#003e7e] transition-transform scale-95 duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">apartment</span>
+<span class="font-['Inter'] text-[11px] font-medium">Projects</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 px-4 py-1 hover:text-[#003e7e] transition-transform scale-95 duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">smart_toy</span>
+<span class="font-['Inter'] text-[11px] font-medium">AI Assistant</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#424751] dark:text-slate-400 px-4 py-1 hover:text-[#003e7e] transition-transform scale-95 duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined">picture_as_pdf</span>
+<span class="font-['Inter'] text-[11px] font-medium">Reports</span>
+</a>
+</nav>
+</body></html>
