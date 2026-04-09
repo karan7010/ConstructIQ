@@ -38,6 +38,7 @@ construction-ai-service/*.egg-info/
 .env
 .env.*
 firebase-service-account.json
+service_account.json
 # Important: Do not ignore package.json/pubspec.yaml
 !package.json
 !pubspec.yaml

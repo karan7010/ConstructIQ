@@ -13,7 +13,7 @@ sentence-transformers
 langchain
 pypdf
 langchain-community
-google-generativeai
+openai>=1.0.0
 python-dotenv
 pandas
 numpy
