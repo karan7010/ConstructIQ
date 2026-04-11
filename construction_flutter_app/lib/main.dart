@@ -4,10 +4,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:connectivity_plus/connectivity_plus.dart'; // Added import for connectivity_plus
 import 'router/app_router.dart';
 import 'utils/design_tokens.dart';
+import 'services/ml_predictor_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  
+  // Pre-load on-device ML model
+  final mlService = mlPredictorService;
+  mlService.loadModel();
+  
   final container = ProviderContainer();
   
   // Listen for connectivity changes for Phase 5 Offline Sync

@@ -12,6 +12,8 @@ import '../../models/project_model.dart';
 import '../../models/estimate_model.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
+import '../../widgets/df_pill.dart';
+import '../../providers/ml_provider.dart';
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
   final String projectId;
@@ -97,7 +99,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                         padding: const EdgeInsets.all(24.0).copyWith(bottom: 150),
                         child: _activeTabIndex == 0 ? _buildOverviewTab(project, estimateAsync.asData?.value) :
                                _activeTabIndex == 1 ? _buildEstimatesTab() :
-                               _activeTabIndex == 2 ? _buildDeviationsTab(deviationAsync.asData?.value) :
+                               _activeTabIndex == 2 ? _buildDeviationsTab(project, deviationAsync.asData?.value) :
                                _buildAiChatTab(project),
                       ),
                     ],
@@ -617,7 +619,18 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildDeviationsTab(Map<String, dynamic>? devData) {
+  Widget _buildDeviationsTab(ProjectModel? project, Map<String, dynamic>? devData) {
+    if (project == null) return const Center(child: CircularProgressIndicator());
+    
+    // On-device ML Prediction Logic
+    final mlInput = OverrunPredictionInput(
+      materialDeviationAvg: getMaterialDeviationAvg(devData?['deviations'] ?? {}),
+      equipmentIdleRatio: 0.10, // Assuming 10% idle as baseline
+      daysElapsedPct: calculateDaysElapsedPct(project.startDate, project.expectedEndDate),
+      budgetSize: project.plannedBudget / 100000.0, // lakh units
+      projectTypeEncoded: encodeProjectType(project.projectType),
+    );
+
     if (devData == null || devData['overallSeverity'] == 'normal') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -645,59 +658,75 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     }
 
     final severity = devData['overallSeverity'] as String;
-    final prob = (devData['mlOverrunProbability'] as num? ?? 0.0) * 100;
     final reason = devData['reason'] ?? 'Unusual resource consumption patterns detected.';
     final insight = devData['aiInsight'] ?? 'Monitor site logs for the next 48 hours.';
-
     Color color = severity == 'critical' ? const Color(0xFFB10010) : const Color(0xFFFEA619);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('Active Deviation'),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return Consumer(
+      builder: (context, ref, child) {
+        final predictionAsync = ref.watch(onDeviceOverrunProvider(mlInput));
+        
+        final prediction = predictionAsync.asData?.value;
+        final isOnDevice = prediction?['on_device'] == true;
+        final prob = (prediction?['probability'] as double? ?? (devData['mlOverrunProbability'] as num? ?? 0.0).toDouble()) * 100;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionTitle('Active Deviation'),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(severity == 'critical' ? Icons.error_rounded : Icons.warning_rounded, color: color),
-                  const SizedBox(width: 12),
-                  Text(severity.toUpperCase(), style: DFTextStyles.screenTitle.copyWith(fontSize: 18, color: color)),
+                  Row(
+                    children: [
+                      Icon(severity == 'critical' ? Icons.error_rounded : Icons.warning_rounded, color: color),
+                      const SizedBox(width: 12),
+                      Text(severity.toUpperCase(), style: DFTextStyles.screenTitle.copyWith(fontSize: 18, color: color)),
+                      const Spacer(),
+                      if (predictionAsync.isLoading)
+                        const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      else
+                        DFPill(
+                          label: isOnDevice ? 'On-device Prediction' : 'Cloud Analysis',
+                          severity: isOnDevice ? 'normal' : 'info',
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(reason, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text(insight, style: DFTextStyles.body.copyWith(color: DFColors.textSecondary, fontSize: 13)),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Overrun Risk', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
+                      Text('${prob.toInt()}%', style: DFTextStyles.screenTitle.copyWith(fontSize: 24, color: color)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: prob / 100,
+                      backgroundColor: DFColors.surfaceContainerHighest,
+                      color: color,
+                      minHeight: 8,
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Text(reason, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(insight, style: DFTextStyles.body.copyWith(color: DFColors.textSecondary, fontSize: 13)),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Overrun Risk', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold)),
-                  Text('${prob.toInt()}%', style: DFTextStyles.screenTitle.copyWith(fontSize: 24, color: color)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: prob / 100,
-                  backgroundColor: DFColors.surfaceContainerHighest,
-                  color: color,
-                  minHeight: 8,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
