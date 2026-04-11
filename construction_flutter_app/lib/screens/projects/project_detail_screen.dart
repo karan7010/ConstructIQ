@@ -63,6 +63,18 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
             icon: const Icon(Icons.notifications_outlined, color: DFColors.primaryStitch),
             onPressed: () => context.push('/notifications'),
           ),
+          Consumer(
+            builder: (context, ref, _) {
+              final userRole = ref.watch(userProfileProvider).value?.role;
+              if (userRole == UserRole.manager || userRole == UserRole.admin) {
+                return IconButton(
+                  icon: const Icon(Icons.delete_outline, color: DFColors.critical),
+                  onPressed: () => _showDeleteConfirmation(context, ref),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
           const SizedBox(width: 12),
         ],
       ),
@@ -779,6 +791,73 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Text(title, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 16, color: DFColors.primaryContainerStitch)),
+    );
+  }
+
+  Future<void> _showDeleteConfirmation(BuildContext context, WidgetRef ref) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: DFColors.critical),
+              const SizedBox(width: 12),
+              const Text('Delete Project'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Are you sure you want to delete this project?', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text('This action will permanently remove all estimates, documents and logs associated with this project. This cannot be undone.', 
+                  style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary)),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('CANCEL', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.textSecondary)),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DFColors.critical,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('DELETE'),
+              onPressed: () async {
+                try {
+                  // Show loading
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(content: Text('Deleting project...'), behavior: SnackBarBehavior.floating),
+                  );
+                  
+                  await ref.read(projectServiceProvider).deleteProject(widget.projectId);
+                  
+                  if (this.context.mounted) {
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      const SnackBar(content: Text('Project deleted successfully'), backgroundColor: DFColors.normal, behavior: SnackBarBehavior.floating),
+                    );
+                    this.context.go('/dashboard');
+                  }
+                } catch (e) {
+                  if (this.context.mounted) {
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: DFColors.critical, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 

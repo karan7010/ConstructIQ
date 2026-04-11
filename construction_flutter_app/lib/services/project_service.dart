@@ -37,4 +37,12 @@ class ProjectService {
       throw Exception('Project update failed: $e');
     }
   }
+
+  Future<void> deleteProject(String projectId) async {
+    try {
+      await _db.collection('projects').doc(projectId).delete();
+    } catch (e) {
+      throw Exception('Project deletion failed: $e');
+    }
+  }
 }

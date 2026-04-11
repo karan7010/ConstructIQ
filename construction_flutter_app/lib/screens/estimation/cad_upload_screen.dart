@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -41,12 +42,8 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
 
       setState(() => _isUploading = true);
       try {
-        await Future.delayed(const Duration(seconds: 2));
-        
-        final geometryResponse = await ref.read(estimationServiceProvider).parseCad(
-          'https://mock-url.com/file.dxf', 
-          'project_123',
-        );
+        final file = File(result.files.single.path!);
+        final geometryResponse = await ref.read(estimationServiceProvider).uploadAndParseCAD(file);
         
         if (mounted) {
           setState(() {

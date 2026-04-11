@@ -1,10 +1,13 @@
 import joblib
-from fastapi import FastAPI, Depends, Request, HTTPException
+from fastapi import FastAPI, Depends, Request, HTTPException, UploadFile, File, Form, Body
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import uvicorn
 from contextlib import asynccontextmanager
 import os
+import json
+from modules import cad_parser, estimation_engine, deviation_analysis, ml_predictor, report_generator
+from fastapi.responses import Response
 
 # Request/Response Models
 class CadParseRequest(BaseModel):
@@ -48,13 +51,76 @@ app = FastAPI(lifespan=lifespan, title="AI Construction Planning API")
 async def verify_token(request: Request):
     return True # For Local Demo
 
-from modules import cad_parser, estimation_engine, deviation_analysis, ml_predictor
 from modules.rag_engine import rag_engine
 
 @app.post("/parse-cad", dependencies=[Depends(verify_token)])
 async def parse_cad(req: CadParseRequest):
-    geometry = cad_parser.parse_geometry("docs/sample_floor_plan.dxf")
+    # Backward compatibility with existing flow
+    geometry = await cad_parser.parse_from_url(req.file_url)
     return {"projectId": req.projectId, "geometry": geometry}
+
+@app.post("/parse-cad-upload", dependencies=[Depends(verify_token)])
+async def parse_cad_upload(file: UploadFile = File(...)):
+    """Analyze DXF directly via multipart upload."""
+    content = await file.read()
+    geometry = cad_parser.parse_from_bytes(content)
+    
+    # Also calculate materials for immediate UI feedback
+    materials = estimation_engine.calculate_materials(geometry)
+    labour = estimation_engine.calculate_labour(materials, geometry)
+    
+    return {
+        "geometry": geometry,
+        "materials": materials,
+        "labour": labour,
+        "total_labour_days": sum(l["labour_days"] for l in labour.values())
+    }
+
+@app.post("/extract-invoice-budget")
+async def extract_invoice_budget(file: UploadFile = File(...)):
+    """Extract budget/amount from PDF invoice using pdfplumber."""
+    import pdfplumber
+    import io
+    content = await file.read()
+    text = ""
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text() or ""
+    
+    # Basic regex to find amount in INR or standard number format
+    import re
+    amounts = re.findall(r'(?:₹|INR|Total|Amount|Balance)\s*:?\s*([\d,]+\.?\d*)', text, re.I)
+    
+    if not amounts:
+        # Fallback to any large-ish number that looks like a total
+        amounts = re.findall(r'(\d{4,10}\.?\d*)', text)
+    
+    extracted_amount = 0.0
+    if amounts:
+        # Get the largest value assuming it's the Total
+        vals = [float(a.replace(',', '')) for a in amounts]
+        extracted_amount = max(vals)
+        
+    return {
+        "extracted_budget": extracted_amount,
+        "confidence": 0.85 if extracted_amount > 0 else 0.0,
+        "vendor": "Extracted Vendor" # Logic can be added to find vendor name
+    }
+
+@app.post("/generate-estimation-report")
+async def generate_report(data: Dict = Body(...)):
+    """Generate high-fidelity PDF report."""
+    pdf_bytes = report_generator.generate_estimation_report(
+        project_name=data.get("project_name", "Untitled Project"),
+        geometry=data.get("geometry", {}),
+        materials=data.get("materials", {}),
+        labour=data.get("labour", {})
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=Estimation_Report.pdf"}
+    )
 
 @app.post("/estimate-materials", dependencies=[Depends(verify_token)])
 async def estimate_materials(req: EstimationRequest):

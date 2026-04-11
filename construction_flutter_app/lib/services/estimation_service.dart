@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,6 +10,61 @@ class EstimationService {
   final String _baseUrl = AppConstants.apiBaseUrl;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  Future<Map<String, dynamic>> uploadAndParseCAD(File dxfFile) async {
+    try {
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(dxfFile.path, filename: 'blueprint.dxf'),
+      });
+
+      final response = await _dio.post(
+        '$_baseUrl/parse-cad-upload',
+        data: formData,
+        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
+      );
+      
+      return response.data;
+    } catch (e) {
+      throw Exception('CAD Analysis failed: $e');
+    }
+  }
+
+  Future<double> extractInvoiceBudget(File pdfFile) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(pdfFile.path, filename: 'invoice.pdf'),
+      });
+
+      final response = await _dio.post(
+        '$_baseUrl/extract-invoice-budget',
+        data: formData,
+      );
+      
+      return (response.data['extracted_budget'] as num).toDouble();
+    } catch (e) {
+      throw Exception('Invoice extraction failed: $e');
+    }
+  }
+
+  Future<List<int>> generateEstimationReport(String projectName, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post(
+        '$_baseUrl/generate-estimation-report',
+        data: {
+          'project_name': projectName,
+          'geometry': data['geometry'],
+          'materials': data['materials'],
+          'labour': data['labour'],
+        },
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception('Report generation failed: $e');
+    }
+  }
+
+  // Legacy compatibility
   Future<EstimateModel> generateEstimate(String projectId, String fileUrl) async {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
@@ -35,53 +91,6 @@ class EstimationService {
       return snapshot.docs.map((doc) => EstimateModel.fromJson(doc.data())).toList();
     } catch (e) {
       throw Exception('Failed to fetch estimates: $e');
-    }
-  }
-
-  // Alias for UI compatibility
-  Future<EstimateModel> generateEstimation(String projectId, String fileUrl) => 
-      generateEstimate(projectId, fileUrl);
-
-  Future<Map<String, dynamic>> parseCad(String fileUrl, String projectId) async {
-    try {
-      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(); // Get ID token for authorization
-      final response = await _dio.post(
-        '$_baseUrl/parse-cad',
-        data: {
-          'file_url': fileUrl,
-          'project_id': projectId,
-        },
-        options: Options(headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken', // Add authorization header
-        }),
-      );
-      if (response.statusCode == 200) {
-        return response.data; // Dio automatically decodes JSON
-      }
-      throw Exception('Failed to parse CAD: ${response.data}');
-    } catch (e) {
-      throw Exception('CAD parsing error: $e');
-    }
-  }
-
-  Future<Map<String, dynamic>> getEstimations(Map<String, dynamic> geometry) async {
-    try {
-      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(); // Get ID token for authorization
-      final response = await _dio.post(
-        '$_baseUrl/estimate-materials',
-        data: {'geometry': geometry},
-        options: Options(headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken', // Add authorization header
-        }),
-      );
-      if (response.statusCode == 200) {
-        return response.data; // Dio automatically decodes JSON
-      }
-      throw Exception('Estimation failed: ${response.data}');
-    } catch (e) {
-      throw Exception('Estimation error: $e');
     }
   }
 }

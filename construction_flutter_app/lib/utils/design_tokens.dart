@@ -14,6 +14,8 @@ class DFColors {
   static const warningBg = Color(0xFFFEF3C7);
   static const normal = Color(0xFF16A34A);
   static const normalBg = Color(0xFFDCFCE7);
+  static const success = Color(0xFF16A34A);
+  static const successBg = Color(0xFFDCFCE7);
 
   // Neutrals
   static const background = Color(0xFFF7F9FC); // Updated to Stitch exact
