@@ -18,10 +18,10 @@ class EstimationService {
       });
 
       final response = await _dio.post(
-        '$_baseUrl/parse-cad-upload',
+        '$_baseUrl/api/cad/parse-upload',
         data: formData,
         options: Options(headers: {'Authorization': 'Bearer $idToken'}),
-      );
+      ),
       
       return response.data;
     } catch (e) {
@@ -35,9 +35,11 @@ class EstimationService {
         'file': await MultipartFile.fromFile(pdfFile.path, filename: 'invoice.pdf'),
       });
 
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       final response = await _dio.post(
-        '$_baseUrl/extract-invoice-budget',
+        '$_baseUrl/api/estimation/extract-budget',
         data: formData,
+        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
       );
       
       return (response.data['extracted_budget'] as num).toDouble();
@@ -48,15 +50,19 @@ class EstimationService {
 
   Future<List<int>> generateEstimationReport(String projectName, Map<String, dynamic> data) async {
     try {
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       final response = await _dio.post(
-        '$_baseUrl/generate-estimation-report',
+        '$_baseUrl/api/estimation/generate-report',
         data: {
           'project_name': projectName,
           'geometry': data['geometry'],
           'materials': data['materials'],
           'labour': data['labour'],
         },
-        options: Options(responseType: ResponseType.bytes),
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {'Authorization': 'Bearer $idToken'},
+        ),
       );
       return response.data;
     } catch (e) {
@@ -69,8 +75,8 @@ class EstimationService {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       final response = await _dio.post(
-        '$_baseUrl/estimate-materials',
-        data: {'projectId': projectId, 'file_url': fileUrl},
+        '$_baseUrl/api/estimation/estimate',
+        data: {'projectId': projectId, 'geometry': {'file_url': fileUrl}},
         options: Options(headers: {'Authorization': 'Bearer $idToken'}),
       );
       return EstimateModel.fromJson(response.data);

@@ -1,25 +1,24 @@
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from .rag_assistant import get_ai_response
+from .api_models import ChatRequest, IndexRequest
+from .rag_engine import rag_engine
 from .auth_middleware import verify_firebase_token
 
 router = APIRouter()
 
-class ChatRequest(BaseModel):
-    message: str
-    project_context: dict = None
-    project_id: str
-
-@router.post("/ai/chat")
-async def chat_with_ai(request: ChatRequest, user=Depends(verify_firebase_token)):
-    """
-    API endpoint for context-aware construction AI chat.
-    """
+@router.post("/query", dependencies=[Depends(verify_firebase_token)])
+async def ai_query_endpoint(req: ChatRequest):
+    """Context-aware AI assistant query."""
     try:
-        response = await get_ai_response(request.message, request.project_context)
-        return {
-            "projectId": request.project_id,
-            "response": response
-        }
+        answer = rag_engine.get_answer(req.projectId, req.message)
+        return {"reply": answer}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI Chat failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/index", dependencies=[Depends(verify_firebase_token)])
+async def index_project_endpoint(req: IndexRequest):
+    """Index project data for RAG assistant."""
+    try:
+        count = rag_engine.index_project_data(req.projectId)
+        return {"status": "indexed", "chunks_indexed": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

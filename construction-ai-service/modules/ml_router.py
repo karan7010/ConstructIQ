@@ -1,25 +1,31 @@
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from .ml_predictor import predict_completion_cost
+from .api_models import PredictionRequest
+from .ml_predictor import predict_overrun
 from .auth_middleware import verify_firebase_token
 
 router = APIRouter()
 
-class MLPredictRequest(BaseModel):
-    current_data: dict
-    initial_estimate: float = 100000
-    project_id: str
-
-@router.post("/ml/predict-cost")
-async def get_cost_prediction(request: MLPredictRequest, user=Depends(verify_firebase_token)):
-    """
-    API endpoint for ML-based project cost forecasting.
-    """
+@router.post("/predict-overrun", dependencies=[Depends(verify_firebase_token)])
+async def predict_overrun_endpoint(req: PredictionRequest):
+    """Predict project cost/time overrun probability."""
     try:
-        prediction = predict_completion_cost(request.current_data, request.initial_estimate)
+        type_map = {"Residential": 0, "Commercial": 1, "Infrastructure": 2}
+        type_encoded = type_map.get(req.project_type, 0)
+        
+        data = {
+            "material_deviation_avg": req.material_deviation_avg,
+            "equipment_idle_ratio": req.equipment_idle_ratio,
+            "days_elapsed_pct": req.days_elapsed_pct,
+            "budget_size": req.budget_size,
+            "project_type_encoded": type_encoded
+        }
+        
+        probability = predict_overrun(data)
+        
         return {
-            "projectId": request.project_id,
-            "prediction": prediction
+            "projectId": req.projectId,
+            "mlOverrunProbability": probability, 
+            "riskLevel": "High" if probability > 0.6 else "Medium" if probability > 0.3 else "Low"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"ML Prediction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
