@@ -25,7 +25,6 @@ import '../screens/profile/profile_screen.dart';
 import '../screens/notifications/notification_centre_screen.dart';
 import '../screens/teams/team_panel_screen.dart';
 import '../screens/workforce/workforce_overview_screen.dart';
-import '../screens/workforce/attendance_marking_screen.dart';
 import '../screens/finance/bill_upload_screen.dart';
 import '../widgets/common/app_shell.dart';
 import '../widgets/common/engineer_shell.dart';
@@ -214,14 +213,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final projectId = state.pathParameters['projectId']!;
               return WorkforceOverviewScreen(projectId: projectId);
-            },
-          ),
-          GoRoute(
-            path: 'attendance',
-            parentNavigatorKey: _rootNavigatorKey,
-            builder: (context, state) {
-              final projectId = state.pathParameters['projectId']!;
-              return AttendanceMarkingScreen(projectId: projectId);
             },
           ),
           GoRoute(

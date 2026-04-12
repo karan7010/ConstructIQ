@@ -509,7 +509,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         ),
         
         SizedBox(height: ProjectDetailUI.sectionTitleTopMargin),
-        _buildSectionTitle('Manpower & Attendance'),
+        _buildSectionTitle('Workforce & Personnel'),
         const SizedBox(height: 2), // Tighter gap
         Padding(
           padding: EdgeInsets.symmetric(horizontal: ProjectDetailUI.utilCardIndent),
@@ -534,36 +534,6 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     const Icon(Icons.chevron_right_rounded, color: DFColors.outlineVariant, size: 20),
                   ],
                 ),
-              ),
-              const SizedBox(height: 12),
-              Consumer(
-                builder: (context, ref, _) {
-                  final userRole = ref.watch(userProfileProvider).value?.role;
-                  if (userRole == UserRole.engineer || userRole == UserRole.manager || userRole == UserRole.admin) {
-                    return DFCard(
-                      onTap: () => context.push('/projects/${widget.projectId}/attendance'),
-                      padding: const EdgeInsets.symmetric(horizontal: ProjectDetailUI.utilCardPadding, vertical: 12),
-                      color: DFColors.primaryStitch.withValues(alpha: 0.05),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.how_to_reg_rounded, color: DFColors.primaryStitch, size: ProjectDetailUI.utilIconSize),
-                          SizedBox(width: ProjectDetailUI.utilRowIconGap),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('MARK ATTENDANCE', style: DFTextStyles.labelSm.copyWith(fontSize: ProjectDetailUI.utilTitleFontSize, fontWeight: ProjectDetailUI.utilTitleWeight)),
-                                Text('Log daily presence for your site team.', style: DFTextStyles.caption.copyWith(fontSize: ProjectDetailUI.utilCaptionFontSize, color: DFColors.textSecondary)),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded, color: DFColors.primaryStitch, size: 20),
-                        ],
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
               ),
             ],
           ),

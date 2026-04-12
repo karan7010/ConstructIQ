@@ -137,14 +137,14 @@ class OwnerDashboard extends ConsumerWidget {
   }
 
   Widget _buildOwnerDashboardContent(BuildContext context, WidgetRef ref, ProjectModel project, String userName) {
-    final workforceAsync = ref.watch(dailyAttendanceProvider(project.id));
+    final workforceAsync = ref.watch(workforceByProjectProvider(project.id));
     final deviationAsync = ref.watch(latestDeviationProvider(project.id));
     final currencyFormat = NumberFormat.compactCurrency(symbol: '₹', locale: 'en_IN');
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(userProjectsProvider);
-        ref.invalidate(dailyAttendanceProvider(project.id));
+        ref.invalidate(workforceByProjectProvider(project.id));
         ref.invalidate(latestDeviationProvider(project.id));
       },
       child: SingleChildScrollView(
@@ -173,11 +173,10 @@ class OwnerDashboard extends ConsumerWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: workforceAsync.when(
-                    data: (attendance) {
-                      final presentCount = attendance.where((a) => a.status.name == 'present').length;
+                    data: (workers) {
                       return _SummaryCard(
-                        title: 'SITE FORCE',
-                        value: '$presentCount Present',
+                        title: 'WORKFORCE',
+                        value: '${workers.length} Personnel',
                         icon: Icons.engineering_outlined,
                         color: DFColors.normal,
                       );
