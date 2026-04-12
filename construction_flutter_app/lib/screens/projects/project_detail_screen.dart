@@ -235,8 +235,17 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Spend Progress', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.textSecondary, fontSize: 11)),
-              Text('${(utilization * 100).toInt()}% Utilized', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch, fontSize: 11)),
+              Expanded(
+                child: Text('Spend Progress', 
+                  style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.textSecondary, fontSize: 11),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('${(utilization * 100).toInt()}% Utilized', 
+                style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch, fontSize: 11),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -322,9 +331,23 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(dateFormat.format(project.startDate), style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                  Text('TODAY', style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                  Text(dateFormat.format(project.expectedEndDate), style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  Expanded(
+                    child: Text(dateFormat.format(project.startDate), 
+                      style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Text('TODAY', style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  ),
+                  Expanded(
+                    child: Text(dateFormat.format(project.expectedEndDate), 
+                      style: DFTextStyles.labelSm.copyWith(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                      textAlign: TextAlign.end,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
             ],
