@@ -250,9 +250,45 @@ def parse_dxf_file(file_path: str) -> dict:
     except Exception:
         pass
 
-    # Compute totals
-    total_wall_length = sum(wall_length_by_layer.values())
-    total_floor_area  = sum(v for v in floor_area_by_layer.values() if v > 0.5)
+    # Determine scale factor to normalize to meters
+    scale_factor = 1.0
+    units = doc.header.get('$INSUNITS', 0)
+    if units == 4: # mm
+        scale_factor = 0.001
+    elif units == 5: # cm
+        scale_factor = 0.01
+    elif units == 1: # inches
+        scale_factor = 0.0254
+    elif units == 2: # feet
+        scale_factor = 0.3048
+    elif units == 6: # meters
+        scale_factor = 1.0
+    else:
+        # Heuristic if unitless
+        try:
+            from ezdxf import bbox
+            extents = bbox.extents(msp)
+            if extents.has_data:
+                w = extents.extmax.x - extents.extmin.x
+                h = extents.extmax.y - extents.extmin.y
+                max_dim = max(w, h)
+                if max_dim > 5000:
+                    scale_factor = 0.001  # assume mm
+                elif max_dim > 300:
+                    scale_factor = 0.0254 # assume inches
+                elif max_dim > 100:
+                    scale_factor = 0.01   # assume cm
+                else:
+                    scale_factor = 1.0
+        except Exception:
+            pass
+
+    # Compute totals and apply scale factor
+    total_wall_length = sum(wall_length_by_layer.values()) * scale_factor
+    total_floor_area  = sum(v for v in floor_area_by_layer.values() if v > 0.5) * (scale_factor ** 2)
+    beam_length       = beam_length * scale_factor
+    stair_area        = stair_area * (scale_factor ** 2)
+    
     height, h_source  = _extract_height(msp)
     h = height if height else 3.0
 
@@ -280,8 +316,8 @@ def parse_dxf_file(file_path: str) -> dict:
         "stairArea":         round(stair_area, 2),
         "doorCount":         door_count,
         "windowCount":       window_count,
-        "wallLengthByLayer": dict(wall_length_by_layer),
-        "floorAreaByLayer":  {k: round(v, 2) for k, v in floor_area_by_layer.items() if v > 0.5},
+        "wallLengthByLayer": {k: round(v * scale_factor, 2) for k, v in wall_length_by_layer.items()},
+        "floorAreaByLayer":  {k: round(v * (scale_factor ** 2), 2) for k, v in floor_area_by_layer.items() if v > 0.5},
         "confidence":        confidence,
         "confidenceScore":   score,
         "hatchAreasFound":   hatch_found,
