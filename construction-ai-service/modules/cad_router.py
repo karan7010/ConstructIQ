@@ -23,7 +23,8 @@ async def parse_cad_upload(file: UploadFile = File(...)):
         geometry = parse_from_bytes(content)
         
         # Immediate feedback for UI
-        materials = calculate_materials(geometry)
+        mat_result = calculate_materials(geometry)
+        materials = mat_result["materials"]
         labour = calculate_labour(materials, geometry)
         
         return {

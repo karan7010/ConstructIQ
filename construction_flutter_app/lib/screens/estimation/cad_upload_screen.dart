@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
 import '../../providers/estimation_provider.dart';
+import '../../models/estimate_model.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
 import '../../widgets/df_button.dart';
@@ -20,6 +23,8 @@ class CadUploadScreen extends ConsumerStatefulWidget {
 class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
   bool _isUploading = false;
   Map<String, dynamic>? _estimationResult;
+  Map<String, dynamic>? _fullEstimationResponse;
+  String? _selectedFileName;
 
   void _pickAndUpload() async {
     final result = await FilePicker.platform.pickFiles(
@@ -43,19 +48,13 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
       setState(() => _isUploading = true);
       try {
         final file = File(result.files.single.path!);
+        _selectedFileName = result.files.single.name;
         final geometryResponse = await ref.read(estimationServiceProvider).uploadAndParseCAD(file);
         
         if (mounted) {
           setState(() {
-            _estimationResult = geometryResponse['geometry'] ?? {
-              'wallArea': 342.6,
-              'floorArea': 186.4,
-              'columns': 12,
-              'height': 3.0,
-              'volume': 559.2,
-              'complexity': 1.2,
-              'cost': 869600.0,
-            };
+            _fullEstimationResponse = geometryResponse;
+            _estimationResult = geometryResponse['geometry'];
             _isUploading = false;
           });
         }
@@ -193,7 +192,7 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
           const SizedBox(height: 40),
           DFButton(
             label: 'SYNC WITH PROJECT LOGS',
-            onPressed: () => context.pop(),
+            onPressed: () => _syncWithLogs(context),
           ),
           const SizedBox(height: 12),
           DFButton(
@@ -205,6 +204,44 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
         ],
       ),
     );
+  }
+
+  void _syncWithLogs(BuildContext context) async {
+    if (_fullEstimationResponse == null || widget.projectId == null) return;
+    
+    setState(() => _isUploading = true);
+    try {
+      final estimate = EstimateModel(
+        estimateId: const Uuid().v4(),
+        generatedAt: DateTime.now(),
+        cadFileName: _selectedFileName ?? 'uploaded_drawing.dxf',
+        geometryData: Map<String, double>.fromEntries(
+          (_fullEstimationResponse!['geometry'] as Map).entries.map((e) {
+             if (e.value is num) return MapEntry(e.key.toString(), (e.value as num).toDouble());
+             return null;
+          }).whereType<MapEntry<String, double>>()
+        ),
+        estimatedMaterials: Map<String, Map<String, dynamic>>.from(_fullEstimationResponse!['materials']),
+        confidence: EstimationConfidence.high,
+      );
+
+      await FirebaseFirestore.instance
+          .collection('projects')
+          .doc(widget.projectId)
+          .collection('estimates')
+          .doc(estimate.estimateId)
+          .set(estimate.toJson());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Successfully synced with project logs!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green));
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to sync: $e')));
+        setState(() => _isUploading = false);
+      }
+    }
   }
 
   Widget _buildHeaderSection() {
@@ -236,12 +273,12 @@ class _CadUploadScreenState extends ConsumerState<CadUploadScreen> {
       crossAxisSpacing: 12,
       childAspectRatio: 1.6,
       children: [
-        _metricTile('WALL AREA', '${_estimationResult?['wallArea']} m²'),
-        _metricTile('FLOOR AREA', '${_estimationResult?['floorArea']} m²'),
-        _metricTile('STR. COLUMNS', '${_estimationResult?['columns']} units'),
-        _metricTile('HEIGHT', '${_estimationResult?['height']} m'),
-        _metricTile('TOTAL VOLUME', '${_estimationResult?['volume']} m³'),
-        _metricTile('COMPLEXITY', '${_estimationResult?['complexity']} β'),
+        _metricTile('WALL AREA', '${_estimationResult?['totalWallArea'] ?? 0} m²'),
+        _metricTile('FLOOR AREA', '${_estimationResult?['totalFloorArea'] ?? 0} m²'),
+        _metricTile('STR. COLUMNS', '${_estimationResult?['totalColumnCount'] ?? 0} units'),
+        _metricTile('HEIGHT', '${_estimationResult?['buildingHeight'] ?? 0} m'),
+        _metricTile('TOTAL VOLUME', '${_estimationResult?['structuralVolume'] ?? 0} m³'),
+        _metricTile('COMPLEXITY', '${_estimationResult?['confidenceScore'] ?? 0} β'),
       ],
     );
   }

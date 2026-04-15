@@ -27,11 +27,11 @@ def calculate_materials(geometry: dict) -> dict:
     sand_masonry    = net_wall_area * 0.06
 
     # RCC slab
-    concrete_vol    = floor_area * 0.15
+    concrete_vol    = geometry.get("concreteVolume", floor_area * 0.15)
     cement_slab     = concrete_vol * 8
     sand_slab       = concrete_vol * 0.42
     aggregate_slab  = concrete_vol * 0.84
-    steel_slab      = struct_vol  * 78.5
+    steel_slab      = concrete_vol * 78.5
 
     # Staircase (slightly thicker slab)
     stair_vol       = stair_area * 0.20

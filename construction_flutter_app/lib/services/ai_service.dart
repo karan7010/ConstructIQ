@@ -10,7 +10,7 @@ class AiService {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       final response = await _dio.post(
-        '$_baseUrl/ai-query',
+        '$_baseUrl/api/rag/query',
         data: {
           'projectId': projectId,
           'message': question, // Consistent with ChatRequest Pydantic model
@@ -28,7 +28,7 @@ class AiService {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       final response = await _dio.post(
-        '$_baseUrl/ai-query',
+        '$_baseUrl/api/rag/query',
         data: {
           'projectId': projectId ?? 'general',
           'message': message,
@@ -48,7 +48,7 @@ class AiService {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       await _dio.post(
-        '$_baseUrl/index-project',
+        '$_baseUrl/api/rag/index',
         data: {'project_id': projectId},
         options: Options(headers: {'Authorization': 'Bearer $idToken'}),
       );

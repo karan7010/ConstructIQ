@@ -6,8 +6,10 @@ import 'package:uuid/uuid.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../models/project_model.dart';
+import '../../models/estimate_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/user_provider.dart';
@@ -24,13 +26,11 @@ class CreateProjectScreen extends ConsumerStatefulWidget {
 
 class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   final _formKey = GlobalKey<FormState>();
-  int _currentStep = 0;
   bool _isLoading = false;
 
   // Controllers
   final _nameController = TextEditingController();
   final _locationController = TextEditingController();
-  final _budgetController = TextEditingController();
   final _typeController = TextEditingController();
   String? _selectedOwnerId;
 
@@ -38,17 +38,25 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   File? _selectedCadFile;
   Map<String, dynamic>? _analysisResult;
   bool _isAnalyzing = false;
-  File? _selectedInvoiceFile;
 
   void _pickCADFile() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['dxf'],
+      type: FileType.any,
     );
 
     if (result != null) {
+      final selectedPath = result.files.single.path!;
+      if (!selectedPath.toLowerCase().endsWith('.dxf')) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please select a valid .dxf file', style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.red,
+        ));
+        return;
+      }
+
       setState(() {
-        _selectedCadFile = File(result.files.single.path!);
+        _selectedCadFile = File(selectedPath);
         _isAnalyzing = true;
       });
 
@@ -66,36 +74,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
     }
   }
 
-  void _pickInvoice() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
 
-    if (result != null) {
-      setState(() {
-        _selectedInvoiceFile = File(result.files.single.path!);
-        _isLoading = true;
-      });
-
-      try {
-        final amount = await ref.read(estimationServiceProvider).extractInvoiceBudget(_selectedInvoiceFile!);
-        setState(() {
-          _budgetController.text = amount.toStringAsFixed(2);
-        });
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Budget extracted from invoice!'),
-          backgroundColor: DFColors.success,
-        ));
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Extraction failed: $e')));
-      } finally {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
 
   void _generateAndShareReport() async {
     if (_analysisResult == null) return;
@@ -140,7 +119,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         status: ProjectStatus.active, // Set to active as it's now "demready"
         createdBy: user.uid,
         teamMembers: [user.uid],
-        plannedBudget: double.tryParse(_budgetController.text) ?? 1000000.0,
+        plannedBudget: 0.0,
         projectType: _typeController.text.isEmpty ? 'Residential' : _typeController.text.trim(),
         cadFileUrl: 'uploaded-via-stream', // In real app, this would be the actual URL
         estimationStatus: EstimationStatus.completed,
@@ -149,10 +128,37 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       );
 
       await ref.read(projectServiceProvider).createProject(project);
+      
+      // Save the CAD upload estimate
+      final geometryMap = _analysisResult!['geometry'] as Map;
+      final estimate = EstimateModel(
+        estimateId: const Uuid().v4(),
+        generatedAt: DateTime.now(),
+        cadFileName: _selectedCadFile?.path.split('/').last ?? 'uploaded_drawing.dxf',
+        geometryData: Map<String, double>.fromEntries(
+          geometryMap.entries.map((e) {
+             if (e.value is num) return MapEntry(e.key.toString(), (e.value as num).toDouble());
+             return null;
+          }).whereType<MapEntry<String, double>>()
+        ),
+        estimatedMaterials: Map<String, Map<String, dynamic>>.from(_analysisResult!['materials']),
+        confidence: EstimationConfidence.high,
+      );
+      
+      await FirebaseFirestore.instance
+          .collection('projects')
+          .doc(project.projectId)
+          .collection('estimates')
+          .doc(estimate.estimateId)
+          .set(estimate.toJson());
+
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: DFColors.criticalBg));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e.toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
+        backgroundColor: Colors.red.shade900,
+      ));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -168,112 +174,46 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         elevation: 0,
         leading: const BackButton(color: DFColors.textPrimary),
       ),
-      body: Stepper(
-        type: StepperType.horizontal,
-        currentStep: _currentStep,
-        elevation: 0,
-        onStepContinue: () {
-          if (_currentStep == 0) {
-            if (_nameController.text.isNotEmpty && _selectedCadFile != null) {
-              setState(() => _currentStep++);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Complete step 1 requirements first.')));
-            }
-          } else {
-            _submit();
-          }
-        },
-        onStepCancel: () {
-          if (_currentStep > 0) setState(() => _currentStep--);
-        },
-        controlsBuilder: (context, details) {
-          return Padding(
-            padding: const EdgeInsets.only(top: DFSpacing.xl),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DFButton(
-                    label: _currentStep == 0 ? 'Next Phase' : 'Activate Project',
-                    isLoading: _isLoading,
-                    onPressed: details.onStepContinue ?? () {},
-                  ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(DFSpacing.lg),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('BASIC MISSION INTEL', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: DFColors.primary)),
+              const SizedBox(height: DFSpacing.md),
+              _buildField('Project Name', _nameController, 'e.g. Neo-Matrix Residency'),
+              const SizedBox(height: DFSpacing.md),
+              _buildField('Location', _locationController, 'GPS Coordinates or Address'),
+              const SizedBox(height: DFSpacing.md),
+              _buildField('Sector', _typeController, 'Residential'),
+              const SizedBox(height: DFSpacing.xl),
+              
+              Text('PROJECT OWNER', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: DFSpacing.sm),
+              _buildOwnerDropdown(),
+              const SizedBox(height: DFSpacing.xl),
+
+              Text('STRUCTURAL BLUEPRINT (DXF)', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: DFColors.primary)),
+              const SizedBox(height: DFSpacing.md),
+              _buildCADUploadZone(),
+              
+              if (_analysisResult != null) _buildAnalysisSummary(),
+              
+              const SizedBox(height: DFSpacing.xxl),
+              SizedBox(
+                width: double.infinity,
+                child: DFButton(
+                  label: 'Activate Project',
+                  isLoading: _isLoading,
+                  onPressed: _submit,
                 ),
-                if (_currentStep > 0) ...[
-                  const SizedBox(width: DFSpacing.md),
-                  TextButton(
-                    onPressed: details.onStepCancel ?? () {},
-                    child: Text('Back', style: DFTextStyles.caption),
-                  ),
-                ],
-              ],
-            ),
-          );
-        },
-        steps: [
-          Step(
-            isActive: _currentStep >= 0,
-            state: _currentStep > 0 ? StepState.complete : StepState.editing,
-            title: const Text('Planning'),
-            content: _buildStepOne(),
+              ),
+            ],
           ),
-          Step(
-            isActive: _currentStep >= 1,
-            title: const Text('Execution'),
-            content: _buildStepTwo(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepOne() {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('BASIC MISSION INTEL', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: DFColors.primary)),
-          const SizedBox(height: DFSpacing.md),
-          _buildField('Project Name', _nameController, 'e.g. Neo-Matrix Residency'),
-          const SizedBox(height: DFSpacing.md),
-          _buildField('Location', _locationController, 'GPS Coordinates or Address'),
-          const SizedBox(height: DFSpacing.xl),
-          
-          Text('STRUCTURAL BLUEPRINT (DXF)', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: DFColors.primary)),
-          const SizedBox(height: DFSpacing.md),
-          _buildCADUploadZone(),
-          
-          if (_analysisResult != null) _buildAnalysisSummary(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepTwo() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('FINANCIAL SYNCHRONIZATION', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: DFColors.primary)),
-        const SizedBox(height: DFSpacing.md),
-        Text('Link a commercial invoice to automatically synchronize mission budget.', style: DFTextStyles.caption),
-        const SizedBox(height: DFSpacing.lg),
-        
-        _buildInvoiceUploadZone(),
-        
-        const SizedBox(height: DFSpacing.xl),
-        Row(
-          children: [
-             Expanded(child: _buildField('Final Budget (₹)', _budgetController, '0.00', isNumber: true)),
-             const SizedBox(width: DFSpacing.md),
-             Expanded(child: _buildField('Sector', _typeController, 'Residential')),
-          ],
         ),
-        
-        const SizedBox(height: DFSpacing.xl),
-        Text('PROJECT OWNER', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: DFSpacing.sm),
-        _buildOwnerDropdown(),
-      ],
+      ),
     );
   }
 
@@ -318,38 +258,6 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
     );
   }
 
-  Widget _buildInvoiceUploadZone() {
-    return GestureDetector(
-      onTap: _pickInvoice,
-      child: DottedBorder(
-        color: DFColors.outline,
-        borderType: BorderType.RRect,
-        radius: const Radius.circular(12),
-        dashPattern: const [4, 4],
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(DFSpacing.lg),
-          decoration: BoxDecoration(
-            color: DFColors.surface,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.description_outlined, color: DFColors.textCaption),
-              const SizedBox(width: DFSpacing.md),
-              Expanded(
-                child: Text(
-                  _selectedInvoiceFile == null ? 'Attach PDF Invoice for Auto-Budget' : _selectedInvoiceFile!.path.split('/').last,
-                  style: DFTextStyles.caption,
-                ),
-              ),
-              if (_selectedInvoiceFile != null) const Icon(Icons.sync, color: DFColors.success, size: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildAnalysisSummary() {
     final mat = _analysisResult!['materials'];

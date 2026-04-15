@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/estimation_provider.dart';
@@ -26,6 +28,33 @@ class ProjectDetailScreen extends ConsumerStatefulWidget {
 
 class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   int _activeTabIndex = 0;
+  bool _isUploadingInvoice = false;
+
+  void _pickInvoice(ProjectModel project) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+    if (result != null) {
+      if (!mounted) return;
+      setState(() => _isUploadingInvoice = true);
+      try {
+        final amount = await ref.read(estimationServiceProvider).extractInvoiceBudget(File(result.files.single.path!));
+        final updatedProject = project.copyWith(plannedBudget: amount);
+        await ref.read(projectServiceProvider).updateProject(updatedProject);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Budget updated successfully from invoice!'),
+          backgroundColor: DFColors.success,
+        ));
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Extraction failed: $e')));
+      } finally {
+        if (mounted) setState(() => _isUploadingInvoice = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +157,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(24, ProjectDetailUI.screenTopPadding, 24, 150), 
                         child: _activeTabIndex == 0 ? _buildOverviewTab(project, estimateAsync.asData?.value) :
-                               _activeTabIndex == 1 ? _buildEstimatesTab() :
+                               _activeTabIndex == 1 ? _buildEstimatesTab(estimateAsync.asData?.value) :
                                _activeTabIndex == 2 ? _buildDeviationsTab(project, deviationAsync.asData?.value) :
                                _buildAiChatTab(project),
                       ),
@@ -255,12 +284,39 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          currencyFormat.format(project.plannedBudget), 
-                          style: DFTextStyles.screenTitle.copyWith(fontSize: 18, fontWeight: FontWeight.w900, color: DFColors.primaryStitch),
-                        ),
+                        if (project.plannedBudget > 0)
+                          Text(
+                            currencyFormat.format(project.plannedBudget), 
+                            style: DFTextStyles.screenTitle.copyWith(fontSize: 18, fontWeight: FontWeight.w900, color: DFColors.primaryStitch),
+                          )
+                        else
+                          Text(
+                            'Pending', 
+                            style: DFTextStyles.screenTitle.copyWith(fontSize: 16, fontWeight: FontWeight.w600, color: DFColors.textSecondary),
+                          ),
                       ],
                     ),
+                    if (project.plannedBudget == 0.0) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: _isUploadingInvoice 
+                            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                            : ElevatedButton.icon(
+                                onPressed: () => _pickInvoice(project),
+                                icon: const Icon(Icons.receipt_long, size: 16),
+                                label: const Text('Add Invoice'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: DFColors.primaryStitch,
+                                  side: const BorderSide(color: DFColors.primaryStitch),
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -700,67 +756,152 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildEstimatesTab() {
+  Widget _buildEstimatesTab(EstimateModel? estimate) {
+    if (estimate == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Estimates Management'),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+            decoration: BoxDecoration(
+              color: DFColors.primaryContainerStitch.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: DFColors.primaryContainerStitch.withValues(alpha: 0.3), width: 2, style: BorderStyle.none),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.analytics_outlined, size: 48, color: DFColors.primaryContainerStitch),
+                const SizedBox(height: 12),
+                Text('Estimation Intelligence', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('Scan your first CAD drawing to generate intelligent material benchmarks.', 
+                  textAlign: TextAlign.center, style: DFTextStyles.caption.copyWith(fontSize: 11)),
+                const SizedBox(height: 24),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final user = ref.watch(userProfileProvider).value;
+                    if (user?.role == UserRole.manager || user?.role == UserRole.admin) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => context.push('/projects/${widget.projectId}/cad-upload'),
+                          icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                          label: const Text('UPLOAD CAD DRAWING'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: DFColors.primaryStitch,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 4,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Estimates Management'),
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-          decoration: BoxDecoration(
-            color: DFColors.primaryContainerStitch.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: DFColors.primaryContainerStitch.withValues(alpha: 0.3), width: 2, style: BorderStyle.none),
-          ),
+        _buildSectionTitle('Active CAD Calculation'),
+        const SizedBox(height: 16),
+        DFCard(
+          padding: const EdgeInsets.all(20),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.analytics_outlined, size: 48, color: DFColors.primaryContainerStitch),
-              const SizedBox(height: 12),
-              Text('Estimation Intelligence', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('Switch to the Overview tab to see the latest material benchmarks generated for this project.', 
-                textAlign: TextAlign.center, style: DFTextStyles.caption.copyWith(fontSize: 11)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => setState(() => _activeTabIndex = 0),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: DFColors.surface,
-                  foregroundColor: DFColors.primaryStitch,
-                  side: const BorderSide(color: DFColors.primaryStitch),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              Container(
+                height: 160,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: DFColors.primaryStitch.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.2), width: 1.5, strokeAlign: BorderSide.strokeAlignOutside),
                 ),
-                child: const Text('View Overview'),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.architecture, size: 48, color: DFColors.primaryStitch),
+                      const SizedBox(height: 12),
+                      Text(estimate.cadFileName, style: DFTextStyles.body.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text('DXF File Preview', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary)),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.6,
+                children: [
+                  _metricTile('WALL AREA', '${estimate.geometryData['totalWallArea'] ?? 0} m²'),
+                  _metricTile('FLOOR AREA', '${estimate.geometryData['totalFloorArea'] ?? 0} m²'),
+                  _metricTile('STR. COLUMNS', '${estimate.geometryData['totalColumnCount']?.toInt() ?? 0} units'),
+                  _metricTile('HEIGHT', '${estimate.geometryData['buildingHeight'] ?? 0} m'),
+                  _metricTile('TOTAL VOLUME', '${estimate.geometryData['structuralVolume'] ?? 0} m³'),
+                  _metricTile('COMPLEXITY', '${estimate.geometryData['confidenceScore']?.toInt() ?? 0} β'),
+                ],
+              ),
+              const SizedBox(height: 24),
               Consumer(
                 builder: (context, ref, _) {
                   final user = ref.watch(userProfileProvider).value;
                   if (user?.role == UserRole.manager || user?.role == UserRole.admin) {
-                    return SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => context.push('/projects/${widget.projectId}/cad-upload'),
-                        icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                        label: const Text('UPLOAD CAD DRAWING'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: DFColors.primaryStitch,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 4,
-                        ),
-                      ),
-                    );
+                     return SizedBox(
+                       width: double.infinity,
+                       child: OutlinedButton.icon(
+                         onPressed: () => context.push('/projects/${widget.projectId}/cad-upload'),
+                         icon: const Icon(Icons.refresh, size: 18),
+                         label: const Text('RE-CALCULATE FROM NEW DXF'),
+                         style: OutlinedButton.styleFrom(
+                           foregroundColor: DFColors.textPrimary,
+                           padding: const EdgeInsets.symmetric(vertical: 12),
+                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                         ),
+                       ),
+                     );
                   }
                   return const SizedBox.shrink();
-                },
+                }
               ),
-            ],
-          ),
-        ),
-      ],
+            ]
+          )
+        )
+      ]
+    );
+  }
+
+  Widget _metricTile(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: DFColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(label, style: DFTextStyles.caption.copyWith(fontSize: 10, color: DFColors.textSecondary, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+          const SizedBox(height: 4),
+          Text(value, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: DFColors.textPrimary)),
+        ],
+      ),
     );
   }
 
