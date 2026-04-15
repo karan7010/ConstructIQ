@@ -2,20 +2,31 @@ import firebase_admin
 from firebase_admin import auth, credentials
 from fastapi import Request, HTTPException
 import os
+import json
 
 # Initialize Firebase Admin with demo safety
 USE_MOCK_AUTH = True
 
 try:
     if not firebase_admin._apps:
-        cred_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "service_account.json")
-        if os.path.exists(cred_path):
-            cred = credentials.Certificate(cred_path)
+        # 1. Try JSON string from environment (Railway/Production)
+        firebase_credentials_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+        if firebase_credentials_json:
+            cred_dict = json.loads(firebase_credentials_json)
+            cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
             USE_MOCK_AUTH = False
-            print("Firebase Admin initialized in PRODUCTION mode.")
+            print("Firebase Admin initialized via FIREBASE_CREDENTIALS_JSON (ENV).")
         else:
-            print("Firebase service account NOT found. Falling back to DEMO mode.")
+            # 2. Try local file (Development)
+            cred_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "service_account.json")
+            if os.path.exists(cred_path):
+                cred = credentials.Certificate(cred_path)
+                firebase_admin.initialize_app(cred)
+                USE_MOCK_AUTH = False
+                print(f"Firebase Admin initialized via {cred_path} (FILE).")
+            else:
+                print("Firebase credentials NOT found. Falling back to DEMO mode.")
 except Exception as e:
     print(f"Auth initialization failed: {e}. Using DEMO mode.")
 

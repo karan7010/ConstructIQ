@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/estimation_provider.dart';
@@ -27,6 +29,33 @@ class ProjectDetailScreen extends ConsumerStatefulWidget {
 
 class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   int _activeTabIndex = 0;
+  bool _isUploadingInvoice = false;
+
+  void _pickInvoice(ProjectModel project) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+    if (result != null) {
+      if (!mounted) return;
+      setState(() => _isUploadingInvoice = true);
+      try {
+        final amount = await ref.read(estimationServiceProvider).extractInvoiceBudget(File(result.files.single.path!));
+        final updatedProject = project.copyWith(plannedBudget: amount);
+        await ref.read(projectServiceProvider).updateProject(updatedProject);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Budget updated successfully from invoice!'),
+          backgroundColor: DFColors.success,
+        ));
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Extraction failed: $e')));
+      } finally {
+        if (mounted) setState(() => _isUploadingInvoice = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,17 +164,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       _buildProjectHeader(
                           project, deviationAsync.asData?.value),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                            24, ProjectDetailUI.screenTopPadding, 24, 150),
-                        child: _activeTabIndex == 0
-                            ? _buildOverviewTab(
-                                project, estimateAsync.asData?.value)
-                            : _activeTabIndex == 1
-                                ? _buildEstimatesTab()
-                                : _activeTabIndex == 2
-                                    ? _buildDeviationsTab(
-                                        project, deviationAsync.asData?.value)
-                                    : _buildAiChatTab(project),
+                        padding: const EdgeInsets.fromLTRB(24, ProjectDetailUI.screenTopPadding, 24, 150), 
+                        child: _activeTabIndex == 0 ? _buildOverviewTab(project, estimateAsync.asData?.value) :
+                               _activeTabIndex == 1 ? _buildEstimatesTab() :
+                               _activeTabIndex == 2 ? _buildDeviationsTab(project, deviationAsync.asData?.value) :
+                               _buildAiChatTab(project),
                       ),
                     ],
                   ),
@@ -294,14 +317,32 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          currencyFormat.format(project.plannedBudget),
-                          style: DFTextStyles.screenTitle.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: DFColors.primaryStitch),
+                          currencyFormat.format(project.plannedBudget), 
+                          style: DFTextStyles.screenTitle.copyWith(fontSize: 18, fontWeight: FontWeight.w900, color: DFColors.primaryStitch),
                         ),
                       ],
                     ),
+                    if (project.plannedBudget == 0.0) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: _isUploadingInvoice 
+                            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                            : ElevatedButton.icon(
+                                onPressed: () => _pickInvoice(project),
+                                icon: const Icon(Icons.receipt_long, size: 16),
+                                label: const Text('Add Invoice'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: DFColors.primaryStitch,
+                                  side: const BorderSide(color: DFColors.primaryStitch),
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -939,24 +980,16 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           decoration: BoxDecoration(
             color: DFColors.primaryContainerStitch.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-                color: DFColors.primaryContainerStitch.withValues(alpha: 0.3),
-                width: 2,
-                style: BorderStyle.none),
+            border: Border.all(color: DFColors.primaryContainerStitch.withValues(alpha: 0.3), width: 2, style: BorderStyle.none),
           ),
           child: Column(
             children: [
-              const Icon(Icons.analytics_outlined,
-                  size: 48, color: DFColors.primaryContainerStitch),
+              const Icon(Icons.analytics_outlined, size: 48, color: DFColors.primaryContainerStitch),
               const SizedBox(height: 12),
-              Text('Estimation Intelligence',
-                  style:
-                      DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+              Text('Estimation Intelligence', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              Text(
-                  'Switch to the Overview tab to see the latest material benchmarks generated for this project.',
-                  textAlign: TextAlign.center,
-                  style: DFTextStyles.caption.copyWith(fontSize: 11)),
+              Text('Switch to the Overview tab to see the latest material benchmarks generated for this project.', 
+                textAlign: TextAlign.center, style: DFTextStyles.caption.copyWith(fontSize: 11)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => setState(() => _activeTabIndex = 0),
@@ -964,11 +997,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   backgroundColor: DFColors.surface,
                   foregroundColor: DFColors.primaryStitch,
                   side: const BorderSide(color: DFColors.primaryStitch),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 child: const Text('View Overview'),
               ),
@@ -976,21 +1007,18 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               Consumer(
                 builder: (context, ref, _) {
                   final user = ref.watch(userProfileProvider).value;
-                  if (user?.role == UserRole.manager ||
-                      user?.role == UserRole.admin) {
+                  if (user?.role == UserRole.manager || user?.role == UserRole.admin) {
                     return SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () => context
-                            .push('/projects/${widget.projectId}/cad-upload'),
+                        onPressed: () => context.push('/projects/${widget.projectId}/cad-upload'),
                         icon: const Icon(Icons.cloud_upload_outlined, size: 18),
                         label: const Text('UPLOAD CAD DRAWING'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: DFColors.primaryStitch,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 4,
                         ),
                       ),
