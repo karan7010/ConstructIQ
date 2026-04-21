@@ -1,4 +1,12 @@
 <!-- code-review-graph MCP tools -->
+
+
+**MANDATORY: Reference `graphify-out/GRAPH_REPORT.md` first when exploring the codebase.** This report provides a semantic and structural map of the project, including module clusters (Communities), God Nodes, and high-level architectural rationales.
+
+- **Primary Context**: `graphify-out/GRAPH_REPORT.md`
+- **Visual Map**: `graphify-out/graph.html`
+- **Data Model**: `.graphify_extract.json` (merged AST + Semantic)
+
 ## MCP Tools: code-review-graph
 
 **IMPORTANT: This project has a knowledge graph. ALWAYS use the
@@ -21,8 +29,8 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 
 | Tool | Use when |
 |------|----------|
-| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context` | Need source snippets for review — token-efficient |
+| `detect_changes` | Reviewing code changes â€” gives risk-scored analysis |
+| `get_review_context` | Need source snippets for review â€” token-efficient |
 | `get_impact_radius` | Understanding blast radius of a change |
 | `get_affected_flows` | Finding which execution paths are impacted |
 | `query_graph` | Tracing callers, callees, imports, tests, dependencies |

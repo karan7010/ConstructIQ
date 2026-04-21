@@ -10,6 +10,10 @@ import '../../services/report_service.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/deviation_provider.dart';
 import '../../providers/estimation_provider.dart';
+import '../../models/vendor_bill_model.dart';
+import '../../models/resource_log_model.dart';
+import '../../providers/vendor_bill_provider.dart';
+import '../../providers/resource_log_provider.dart';
 
 class PdfPreviewScreen extends ConsumerWidget {
   final String projectId;
@@ -24,6 +28,8 @@ class PdfPreviewScreen extends ConsumerWidget {
     final projectAsync = ref.watch(projectByIdProvider(projectId));
     final deviationAsync = ref.watch(latestDeviationProvider(projectId));
     final estimateService = ref.watch(estimationServiceProvider);
+    final billsAsync = ref.watch(projectBillsProvider(projectId));
+    final logsAsync = ref.watch(projectLogsProvider(projectId));
 
     return projectAsync.when(
       data: (project) {
@@ -42,7 +48,11 @@ class PdfPreviewScreen extends ConsumerWidget {
                     (snapshot.data != null && snapshot.data!.isNotEmpty)
                         ? snapshot.data!.first
                         : null;
-                return _buildPreview(context, project, estimate, deviation);
+                
+                final bills = billsAsync.value ?? [];
+                final logs = logsAsync.value ?? [];
+
+                return _buildPreview(context, project, estimate, deviation, bills, logs);
               },
             );
           },
@@ -72,7 +82,8 @@ class PdfPreviewScreen extends ConsumerWidget {
   }
 
   Widget _buildPreview(BuildContext context, ProjectModel project,
-      EstimateModel? estimate, DeviationModel deviation) {
+      EstimateModel? estimate, DeviationModel deviation, 
+      List<VendorBillModel> bills, List<ResourceLogModel> logs) {
     final reportService = ReportService();
 
     return Scaffold(
@@ -149,7 +160,7 @@ class PdfPreviewScreen extends ConsumerWidget {
           ),
           // Bottom Action Bar
           _buildBottomActionBar(
-              context, reportService, project, estimate, deviation),
+              context, reportService, project, estimate, deviation, bills, logs),
         ],
       ),
     );
@@ -751,7 +762,8 @@ class PdfPreviewScreen extends ConsumerWidget {
   }
 
   Widget _buildBottomActionBar(BuildContext context, ReportService service,
-      ProjectModel project, EstimateModel? estimate, DeviationModel deviation) {
+      ProjectModel project, EstimateModel? estimate, DeviationModel deviation,
+      List<VendorBillModel> bills, List<ResourceLogModel> logs) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
@@ -768,8 +780,13 @@ class PdfPreviewScreen extends ConsumerWidget {
           // Print button
           Expanded(
             child: _buildActionButton(Icons.print, 'Print', false, () {
-              final doc =
-                  service.generatePdfDocument(project, estimate, deviation);
+              final doc = service.generatePdfDocument(
+                project: project,
+                estimate: estimate,
+                deviation: deviation,
+                bills: bills,
+                logs: logs,
+              );
               service.exportPdf(doc);
             }),
           ),
@@ -777,8 +794,13 @@ class PdfPreviewScreen extends ConsumerWidget {
           // Share button
           Expanded(
             child: _buildActionButton(Icons.share, 'Share', false, () {
-              final doc =
-                  service.generatePdfDocument(project, estimate, deviation);
+              final doc = service.generatePdfDocument(
+                project: project,
+                estimate: estimate,
+                deviation: deviation,
+                bills: bills,
+                logs: logs,
+              );
               service.sharePdf(doc,
                   'Construction_Report_${project.name.replaceAll(' ', '_')}');
             }),
@@ -788,8 +810,13 @@ class PdfPreviewScreen extends ConsumerWidget {
           Expanded(
             flex: 2,
             child: _buildActionButton(Icons.download, 'Download PDF', true, () {
-              final doc =
-                  service.generatePdfDocument(project, estimate, deviation);
+              final doc = service.generatePdfDocument(
+                project: project,
+                estimate: estimate,
+                deviation: deviation,
+                bills: bills,
+                logs: logs,
+              );
               service.exportPdf(doc);
             }),
           ),

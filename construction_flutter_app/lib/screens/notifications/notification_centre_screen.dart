@@ -15,7 +15,6 @@ class NotificationCentreScreen extends ConsumerStatefulWidget {
 class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScreen> {
   String _activeFilter = 'All';
   final List<String> _filters = ['All', 'Critical', 'Warning', 'Info'];
-  final Set<String> _readIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -35,15 +34,17 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
         actions: [
           TextButton(
             onPressed: () {
-              setState(() {
                 // Mark all as read
                 allDevsAsync.whenData((devs) {
+                  final notifier = ref.read(readNotificationsProvider.notifier);
+                  final currentIds = notifier.state;
+                  final newIds = Set<String>.from(currentIds);
                   for (var d in devs) {
                     final id = d['deviationId'] as String? ?? '';
-                    if (id.isNotEmpty) _readIds.add(id);
+                    if (id.isNotEmpty) newIds.add(id);
                   }
+                  notifier.state = newIds;
                 });
-              });
             },
             child: Text('Mark all read',
               style: DFTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.w600, color: DFColors.primary),
@@ -134,7 +135,8 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
   Widget _buildNotificationCard(Map<String, dynamic> devData) {
     final severity = devData['overallSeverity'] as String? ?? 'normal';
     final deviationId = devData['deviationId'] as String? ?? '';
-    final isUnread = !_readIds.contains(deviationId);
+    final readIds = ref.watch(readNotificationsProvider);
+    final isUnread = !readIds.contains(deviationId);
     final aiSummary = devData['aiInsightSummary'] as String? ?? 'No details available.';
     final mlProb = (devData['mlOverrunProbability'] as num?)?.toDouble() ?? 0.0;
     final generatedAt = devData['generatedAt'] as Timestamp?;
@@ -200,7 +202,8 @@ class _NotificationCentreScreenState extends ConsumerState<NotificationCentreScr
       onTap: () {
         // Mark as read on tap
         if (deviationId.isNotEmpty) {
-          setState(() => _readIds.add(deviationId));
+          final notifier = ref.read(readNotificationsProvider.notifier);
+          notifier.state = {...notifier.state, deviationId};
         }
       },
       child: Container(

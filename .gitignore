@@ -69,3 +69,6 @@ issues.txt
 analysis_full.txt
 analysis_final_check_v2.txt
 analysis_final_check.txt
+
+# Graphify Output
+graphify-out/

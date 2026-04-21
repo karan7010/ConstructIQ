@@ -1,5 +1,41 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class BillItem {
+  final String description;
+  final double quantity;
+  final String unit;
+  final double rate;
+  final double amount;
+
+  BillItem({
+    required this.description,
+    required this.quantity,
+    required this.unit,
+    required this.rate,
+    required this.amount,
+  });
+
+  factory BillItem.fromJson(Map<String, dynamic> json) {
+    return BillItem(
+      description: json['description'] as String? ?? '',
+      quantity: (json['quantity'] as num? ?? 0.0).toDouble(),
+      unit: json['unit'] as String? ?? 'Unit',
+      rate: (json['rate'] as num? ?? 0.0).toDouble(),
+      amount: (json['amount'] as num? ?? 0.0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'description': description,
+      'quantity': quantity,
+      'unit': unit,
+      'rate': rate,
+      'amount': amount,
+    };
+  }
+}
+
 class VendorBillModel {
   final String id;
   final String projectId;
@@ -9,6 +45,7 @@ class VendorBillModel {
   final String category;
   final String fileUrl;
   final String uploadedBy;
+  final List<BillItem> items;
   final DateTime createdAt;
 
   VendorBillModel({
@@ -20,6 +57,7 @@ class VendorBillModel {
     required this.category,
     required this.fileUrl,
     required this.uploadedBy,
+    required this.items,
     required this.createdAt,
   });
 
@@ -33,6 +71,9 @@ class VendorBillModel {
       category: json['category'] as String? ?? 'Other',
       fileUrl: json['fileUrl'] as String? ?? '',
       uploadedBy: json['uploadedBy'] as String? ?? 'Admin',
+      items: json['items'] != null
+          ? (json['items'] as List).map((i) => BillItem.fromJson(i as Map<String, dynamic>)).toList()
+          : [],
       createdAt: (json['createdAt'] as Timestamp? ?? Timestamp.now()).toDate(),
     );
   }
@@ -47,6 +88,7 @@ class VendorBillModel {
       'category': category,
       'fileUrl': fileUrl,
       'uploadedBy': uploadedBy,
+      'items': items.map((i) => i.toJson()).toList(),
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }

@@ -10,8 +10,26 @@ import '../../providers/auth_provider.dart';
 import '../../providers/resource_log_provider.dart';
 import '../../utils/design_tokens.dart';
 import '../../widgets/df_card.dart';
+import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/estimation_provider.dart';
+
+class EquipmentController {
+  final TextEditingController name;
+  final TextEditingController used;
+  final TextEditingController idle;
+
+  EquipmentController({String nameText = ''})
+      : name = TextEditingController(text: nameText),
+        used = TextEditingController(text: '0.0'),
+        idle = TextEditingController(text: '0.0');
+
+  void dispose() {
+    name.dispose();
+    used.dispose();
+    idle.dispose();
+  }
+}
 
 class LogEntryScreen extends ConsumerStatefulWidget {
   final String? projectId;
@@ -30,15 +48,8 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   final _admixtureController = TextEditingController(text: "14");
   final _sandController = TextEditingController(text: "4.2");
   
-  // Equipments (Used/Idle)
-  final _excavatorUsedController = TextEditingController(text: "6.5");
-  final _excavatorIdleController = TextEditingController(text: "1.5");
-  
-  final _craneUsedController = TextEditingController(text: "4.0");
-  final _craneIdleController = TextEditingController(text: "4.0");
-  
-  final _mixerUsedController = TextEditingController(text: "8.0");
-  final _mixerIdleController = TextEditingController(text: "0.0");
+  // Dynamic Equipments
+  final List<EquipmentController> _equipmentControllers = [];
   
   final _notesController = TextEditingController();
   
@@ -50,34 +61,41 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   @override
   void initState() {
     super.initState();
-    // Add listeners to equipment controllers to refresh ratio
-    _excavatorUsedController.addListener(_rebuild);
-    _excavatorIdleController.addListener(_rebuild);
-    _craneUsedController.addListener(_rebuild);
-    _craneIdleController.addListener(_rebuild);
-    _mixerUsedController.addListener(_rebuild);
-    _mixerIdleController.addListener(_rebuild);
+    // Start with one default row
+    _addEquipmentRow('Excavator E-04');
+  }
+
+  void _addEquipmentRow([String name = '']) {
+    final controller = EquipmentController(nameText: name);
+    controller.used.addListener(_rebuild);
+    controller.idle.addListener(_rebuild);
+    setState(() {
+      _equipmentControllers.add(controller);
+    });
+  }
+
+  void _removeEquipmentRow(int index) {
+    if (_equipmentControllers.length <= 1) return;
+    setState(() {
+      final controller = _equipmentControllers.removeAt(index);
+      controller.used.removeListener(_rebuild);
+      controller.idle.removeListener(_rebuild);
+      controller.dispose();
+    });
   }
 
   @override
   void dispose() {
-    _excavatorUsedController.removeListener(_rebuild);
-    _excavatorIdleController.removeListener(_rebuild);
-    _craneUsedController.removeListener(_rebuild);
-    _craneIdleController.removeListener(_rebuild);
-    _mixerUsedController.removeListener(_rebuild);
-    _mixerIdleController.removeListener(_rebuild);
+    for (var ctrl in _equipmentControllers) {
+      ctrl.used.removeListener(_rebuild);
+      ctrl.idle.removeListener(_rebuild);
+      ctrl.dispose();
+    }
     
     _cementController.dispose();
     _rebarController.dispose();
     _admixtureController.dispose();
     _sandController.dispose();
-    _excavatorUsedController.dispose();
-    _excavatorIdleController.dispose();
-    _craneUsedController.dispose();
-    _craneIdleController.dispose();
-    _mixerUsedController.dispose();
-    _mixerIdleController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -112,6 +130,17 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
 
   void _submit() async {
     if (widget.projectId == null) return;
+    
+    final project = ref.read(projectByIdProvider(widget.projectId!)).value;
+    if (project?.status == ProjectStatus.closed) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cannot submit log: Project is closed.'), backgroundColor: DFColors.critical),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
     
     // Simulate network delay for UI loader
@@ -127,6 +156,12 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         _location = {'lat': position.latitude, 'lng': position.longitude};
       }
 
+      final List<EquipmentEntry> equipmentList = _equipmentControllers.map((c) => EquipmentEntry(
+        name: c.name.text.isEmpty ? 'Generic' : c.name.text,
+        usedHours: double.tryParse(c.used.text) ?? 0.0,
+        idleHours: double.tryParse(c.idle.text) ?? 0.0,
+      )).toList();
+
       final log = ResourceLogModel(
         id: const Uuid().v4(),
         projectId: widget.projectId!,
@@ -139,10 +174,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
           'admixture': double.tryParse(_admixtureController.text) ?? 0.0,
           'sand': double.tryParse(_sandController.text) ?? 0.0,
         },
-        equipment: {
-          'excavator_used': {'hours': double.tryParse(_excavatorUsedController.text) ?? 0.0},
-          'excavator_idle': {'hours': double.tryParse(_excavatorIdleController.text) ?? 0.0},
-        },
+        equipmentList: equipmentList,
         laborHours: 0.0,
         notes: _notesController.text,
         weatherCondition: _selectedWeather,
@@ -152,7 +184,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       await ref.read(resourceLogServiceProvider).addLog(log, photo: _image);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Log Evidence Recorded for \${widget.projectId}'), backgroundColor: DFColors.primaryStitch),
+          SnackBar(content: Text('Log Evidence Recorded for $projectName'), backgroundColor: DFColors.primaryStitch),
         );
         context.pop();
       }
@@ -165,6 +197,11 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String get projectName {
+     final project = ref.read(projectByIdProvider(widget.projectId!)).value;
+     return project?.name ?? widget.projectId!;
   }
 
   @override
@@ -204,6 +241,27 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (project.status == ProjectStatus.closed)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 24),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: DFColors.critical.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.lock_rounded, color: DFColors.critical, size: 18),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'PROJECT IS CLOSED. LOGS ARE READ-ONLY.',
+                                      style: DFTextStyles.labelSm.copyWith(color: DFColors.critical, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           _buildHeaderInfo(project.name),
                           const SizedBox(height: 32),
                           
@@ -252,9 +310,6 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
         onPressed: () => context.pop(),
       ),
       title: Text('Daily Log', style: DFTextStyles.screenTitle.copyWith(fontSize: 18)),
-      actions: const [
-        // Redundant icons removed for clean document style
-      ],
     );
   }
 
@@ -262,20 +317,9 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Log for $projectName', style: DFTextStyles.screenTitle.copyWith(color: DFColors.primaryStitch, fontSize: 24, letterSpacing: -0.5)),
-                const SizedBox(height: 4),
-                Text('Phase 2: Structural Reinforcement', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w500, color: DFColors.textSecondary)),
-              ],
-            ),
-          ],
-        ),
+        Text('Log for $projectName', style: DFTextStyles.screenTitle.copyWith(color: DFColors.primaryStitch, fontSize: 24, letterSpacing: -0.5)),
+        const SizedBox(height: 4),
+        Text('Phase 2: Structural Reinforcement', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w500, color: DFColors.textSecondary)),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(8),
@@ -346,45 +390,23 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   Widget _buildMaterialGrid(String Function(String, String) dailyEst) {
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(child: _buildMaterialCard('Cement (PPC)', dailyEst('cement', 'bags'), 'bags', Icons.conveyor_belt, _cementController, warning: 'Exceeds estimate (1.1x)')),
-          ],
-        ),
+        _buildMaterialCard('Cement (PPC)', dailyEst('cement', 'bags'), 'bags', Icons.conveyor_belt, _cementController),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: _buildMaterialCard('Steel Rebar 12mm', dailyEst('steel', 'kg'), 'kg', Icons.architecture, _rebarController, warning: 'Over 1.2x limit', isCritical: true)),
-          ],
-        ),
+        _buildMaterialCard('Steel Rebar 12mm', dailyEst('steel', 'kg'), 'kg', Icons.architecture, _rebarController),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: _buildMaterialCard('Admixture', dailyEst('admixture', 'kg'), 'kg', Icons.water_drop, _admixtureController)),
-          ],
-        ),
+        _buildMaterialCard('Admixture', dailyEst('admixture', 'kg'), 'kg', Icons.water_drop, _admixtureController),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: _buildMaterialCard('River Sand', dailyEst('sand', 'm³'), 'm³', Icons.texture, _sandController)),
-          ],
-        ),
+        _buildMaterialCard('River Sand', dailyEst('sand', 'm³'), 'm³', Icons.texture, _sandController),
       ],
     );
   }
 
-  Widget _buildMaterialCard(String title, String est, String unit, IconData iconData, TextEditingController controller, {String? warning, bool isCritical = false}) {
-    Color borderColor = isCritical ? const Color(0xFFFEA619).withValues(alpha: 0.3) : Colors.transparent;
-    double borderWidth = isCritical ? 2.0 : 0.0;
-    Color inputBg = isCritical ? const Color(0xFFFEA619).withValues(alpha: 0.1) : DFColors.surfaceContainerHighest;
-    Color inputBorderColor = isCritical ? const Color(0xFFFEA619) : Colors.transparent;
-
+  Widget _buildMaterialCard(String title, String est, String unit, IconData iconData, TextEditingController controller) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: borderWidth),
         boxShadow: const [BoxShadow(color: Color(0x0F191C1E), blurRadius: 32, offset: Offset(0, 12))],
       ),
       child: Row(
@@ -393,11 +415,11 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
           Row(
             children: [
               Container(
-                width: 36, height: 36, // Shrunk from 48
+                width: 36, height: 36,
                 decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(6)),
-                child: Icon(iconData, color: DFColors.primaryStitch, size: 20), // Shrunk from 28
+                child: Icon(iconData, color: DFColors.primaryStitch, size: 20),
               ),
-              const SizedBox(width: 12), // Reduced gap
+              const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -407,40 +429,29 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
               ),
             ],
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                width: 80, height: 40, // Shrunk width/height
-                decoration: BoxDecoration(
-                  color: inputBg,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: inputBorderColor, width: isCritical ? 1.5 : 0),
+          Container(
+            width: 80, height: 40,
+            decoration: BoxDecoration(
+              color: DFColors.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textAlign: TextAlign.right,
+                    style: DFTextStyles.screenTitle.copyWith(fontSize: 16),
+                    decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 4), isDense: true),
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: controller,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        textAlign: TextAlign.right,
-                        style: DFTextStyles.screenTitle.copyWith(fontSize: 16),
-                        decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 4), isDense: true),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6.0),
-                      child: Text(unit, style: DFTextStyles.labelSm.copyWith(color: isCritical ? const Color(0xFF653E00) : DFColors.outlineVariant, fontWeight: FontWeight.bold, fontSize: 10)),
-                    ),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.only(right: 6.0),
+                  child: Text(unit, style: DFTextStyles.labelSm.copyWith(color: DFColors.outlineVariant, fontWeight: FontWeight.bold, fontSize: 10)),
                 ),
-              ),
-              if (warning != null) ...[
-                const SizedBox(height: 4),
-                Text(warning, style: DFTextStyles.labelSm.copyWith(color: isCritical ? const Color(0xFF653E00) : const Color(0xFF850009), fontWeight: FontWeight.bold, fontSize: 10)),
               ],
-            ],
+            ),
           ),
         ],
       ),
@@ -448,9 +459,64 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
   }
 
   Widget _buildEquipmentSection() {
-    String calculateRatio(TextEditingController used, TextEditingController idle) {
-      double u = double.tryParse(used.text) ?? 0.0;
-      double i = double.tryParse(idle.text) ?? 0.0;
+    return Column(
+      children: [
+        // Quick add common items
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildAddQuickChip('EXCAVATOR', Icons.agriculture),
+              const SizedBox(width: 8),
+              _buildAddQuickChip('CRANE', Icons.precision_manufacturing),
+              const SizedBox(width: 8),
+              _buildAddQuickChip('MIXER', Icons.cyclone),
+              const SizedBox(width: 8),
+              _buildAddQuickChip('TRUCK', Icons.local_shipping),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: DFColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _equipmentControllers.length,
+            separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0x1Ac2c6d3)),
+            itemBuilder: (context, index) => _buildEquipmentRow(index),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: () => _addEquipmentRow(),
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('ADD OTHER EQUIPMENT'),
+          style: TextButton.styleFrom(foregroundColor: DFColors.primaryStitch),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddQuickChip(String label, IconData icon) {
+    return ActionChip(
+      avatar: Icon(icon, size: 14),
+      label: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+      onPressed: () => _addEquipmentRow(label),
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: DFColors.outlineVariant),
+    );
+  }
+
+  Widget _buildEquipmentRow(int index) {
+    final controller = _equipmentControllers[index];
+    
+    String calculateRatio() {
+      double u = double.tryParse(controller.used.text) ?? 0.0;
+      double i = double.tryParse(controller.idle.text) ?? 0.0;
       double total = u + i;
       if (total == 0) return '0%';
       return '${((i / total) * 100).toInt()}%';
@@ -462,42 +528,31 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
       return const Color(0xFF059669); // Green for efficient
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: DFColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          _buildEquipmentRow('Excavator E-04', 'Heavy Duty', Icons.agriculture, _excavatorUsedController, _excavatorIdleController, calculateRatio(_excavatorUsedController, _excavatorIdleController), getRatioColor(calculateRatio(_excavatorUsedController, _excavatorIdleController))),
-          const Divider(height: 1, color: Color(0x1Ac2c6d3)),
-          _buildEquipmentRow('Tower Crane C-01', 'Lifting', Icons.precision_manufacturing, _craneUsedController, _craneIdleController, calculateRatio(_craneUsedController, _craneIdleController), getRatioColor(calculateRatio(_craneUsedController, _craneIdleController))),
-          const Divider(height: 1, color: Color(0x1Ac2c6d3)),
-          _buildEquipmentRow('Concrete Mixer M-12', 'Transit', Icons.cyclone, _mixerUsedController, _mixerIdleController, calculateRatio(_mixerUsedController, _mixerIdleController), getRatioColor(calculateRatio(_mixerUsedController, _mixerIdleController))),
-        ],
-      ),
-    );
-  }
+    final ratio = calculateRatio();
+    final ratioColor = getRatioColor(ratio);
 
-  Widget _buildEquipmentRow(String title, String subtitle, IconData icon, TextEditingController usedCtrl, TextEditingController idleCtrl, String ratio, Color ratioColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 14.0),
       child: Column(
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(6), 
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)), 
-                child: Icon(icon, color: DFColors.primaryStitch, size: 18),
+              Expanded(
+                child: TextField(
+                  controller: controller.name,
+                  style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 13),
+                  decoration: const InputDecoration(
+                    hintText: 'Equipment Name...',
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
+                ),
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 13)),
-                  Text(subtitle.toUpperCase(), style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.textSecondary)),
-                ],
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline, size: 20, color: DFColors.critical),
+                onPressed: () => _removeEquipmentRow(index),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
             ],
           ),
@@ -508,13 +563,13 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('USED HRS', style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
+                    Text('USED HOURS', style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
                     const SizedBox(height: 4),
                     Container(
                       height: 44,
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
                       child: TextField(
-                        controller: usedCtrl,
+                        controller: controller.used,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         style: DFTextStyles.screenTitle.copyWith(fontSize: 16),
                         decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 12)),
@@ -528,13 +583,13 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('IDLE HRS', style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
+                    Text('IDLE HOURS', style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
                     const SizedBox(height: 4),
                     Container(
                       height: 44,
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
                       child: TextField(
-                        controller: idleCtrl,
+                        controller: controller.idle,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         style: DFTextStyles.screenTitle.copyWith(fontSize: 16),
                         decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 12)),
@@ -549,7 +604,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('RATIO', style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
+                    Text('IDLE RATIO', style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.outlineVariant, letterSpacing: 0.5)),
                     const SizedBox(height: 4),
                     Text(ratio, style: DFTextStyles.screenTitle.copyWith(fontSize: 16, color: ratioColor)),
                   ],
@@ -646,7 +701,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
           width: double.infinity,
           height: 64,
           child: ElevatedButton(
-            onPressed: _isLoading ? null : _submit,
+            onPressed: (_isLoading || (ref.read(projectByIdProvider(widget.projectId!)).value?.status == ProjectStatus.closed)) ? null : _submit,
             style: ElevatedButton.styleFrom(
               backgroundColor: DFColors.primaryContainerStitch,
               foregroundColor: Colors.white,
@@ -678,7 +733,7 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
 
   Widget _buildShimmerLoader() {
     return Container(
-      color: Colors.white.withValues(alpha: 0.6),
+      color: Colors.white.withAlpha(153),
       child: Center(
         child: Container(
           width: 256, height: 8,
@@ -693,3 +748,4 @@ class _LogEntryScreenState extends ConsumerState<LogEntryScreen> {
     );
   }
 }
+

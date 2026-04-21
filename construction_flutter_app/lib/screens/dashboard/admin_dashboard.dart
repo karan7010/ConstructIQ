@@ -1,6 +1,8 @@
 import 'package:intl/intl.dart';
 import '../../providers/project_provider.dart';
 import '../../utils/design_tokens.dart';
+import 'package:go_router/go_router.dart';
+import '../../providers/deviation_provider.dart';
 
 class AdminDashboard extends ConsumerWidget {
   const AdminDashboard({super.key});
@@ -29,8 +31,45 @@ class AdminDashboard extends ConsumerWidget {
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.notifications_active, color: Colors.red), onPressed: () {}),
-          const SizedBox(width: 16),
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined, color: Colors.black87),
+                  onPressed: () => context.push('/notifications'),
+                ),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final allDevsAsync = ref.watch(allDeviationsProvider);
+                    final readIds = ref.watch(readNotificationsProvider);
+                    
+                    bool hasUnread = false;
+                    if (allDevsAsync.hasValue) {
+                      hasUnread = allDevsAsync.value!.any((d) => !readIds.contains(d['deviationId'] as String? ?? ''));
+                    }
+
+                    if (!hasUnread) return const SizedBox.shrink();
+
+                    return Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFBA1A1A),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
         ],
       ),
       body: projectsAsync.when(

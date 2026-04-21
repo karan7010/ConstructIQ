@@ -4,7 +4,7 @@ from .api_models import EstimationRequest, ReportRequest
 from .estimation_engine import calculate_materials, calculate_labour
 from .report_generator import generate_estimation_report
 from .auth_middleware import verify_firebase_token
-import pdfplumber
+from .invoice_parser import parse_invoice_pdf
 import io
 import re
 
@@ -30,27 +30,24 @@ async def estimate_materials_endpoint(req: EstimationRequest):
 
 @router.post("/extract-budget", dependencies=[Depends(verify_firebase_token)])
 async def extract_invoice_budget(file: UploadFile = File(...)):
-    """Extract budget from PDF invoice."""
+    """Extract budget from PDF invoice using local parser."""
     try:
         content = await file.read()
-        text = ""
-        with pdfplumber.open(io.BytesIO(content)) as pdf:
-            for page in pdf.pages:
-                text += page.extract_text() or ""
-        
-        amounts = re.findall(r'(?:₹|INR|Total|Amount|Balance)\s*:?\s*([\d,]+\.?\d*)', text, re.I)
-        if not amounts:
-            amounts = re.findall(r'(\d{4,10}\.?\d*)', text)
-        
-        extracted_amount = 0.0
-        if amounts:
-            vals = [float(a.replace(',', '')) for a in amounts]
-            extracted_amount = max(vals)
-            
+        result = parse_invoice_pdf(content)
         return {
-            "extracted_budget": extracted_amount,
-            "confidence": 0.85 if extracted_amount > 0 else 0.0
+            "extracted_budget": result.get("grandTotal", 0.0),
+            "confidence": 0.85 if result.get("success") else 0.0
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/extract-items", dependencies=[Depends(verify_firebase_token)])
+async def extract_items_endpoint(file: UploadFile = File(...)):
+    """Extract itemized details from PDF invoice using local parser."""
+    try:
+        content = await file.read()
+        result = parse_invoice_pdf(content)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

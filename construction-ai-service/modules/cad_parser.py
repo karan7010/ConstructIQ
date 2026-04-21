@@ -218,17 +218,29 @@ def _spline_length(entity, scale: float) -> float:
 
 def _polyline_length_and_area(entity, scale: float):
     try:
-        pts = [(p[0] * scale, p[1] * scale) for p in entity.get_points()]
+        # ezdxf: LWPOLYLINE uses get_points(), legacy POLYLINE uses .vertices
+        if hasattr(entity, 'get_points'):
+            pts = [(p[0] * scale, p[1] * scale) for p in entity.get_points()]
+        elif hasattr(entity, 'vertices'):
+            pts = [(v.dxf.location[0] * scale, v.dxf.location[1] * scale) for v in entity.vertices]
+        else:
+            # Fallback for other path-like types
+            pts = [(p[0] * scale, p[1] * scale) for p in entity.flattening(0.1)]
+            
         length = 0.0
         for i in range(len(pts) - 1):
             dx = pts[i + 1][0] - pts[i][0]
             dy = pts[i + 1][1] - pts[i][1]
             length += math.sqrt(dx * dx + dy * dy)
-        if entity.is_closed and len(pts) > 1:
+        
+        # Check if closed
+        is_closed = getattr(entity, 'is_closed', False)
+        if is_closed and len(pts) > 1:
             dx = pts[0][0] - pts[-1][0]
             dy = pts[0][1] - pts[-1][1]
             length += math.sqrt(dx * dx + dy * dy)
-        area = _shoelace_area(pts) if entity.is_closed else 0.0
+            
+        area = _shoelace_area(pts) if is_closed else 0.0
         return length, area
     except Exception:
         return 0.0, 0.0
@@ -248,6 +260,7 @@ def _hatch_area(entity, scale: float) -> float:
                     etype = type(edge).__name__
                     if 'LineEdge' in etype:
                         pts.append((edge.start[0] * scale, edge.start[1] * scale))
+                        pts.append((edge.end[0] * scale, edge.end[1] * scale))
                     elif 'ArcEdge' in etype:
                         cx = edge.center[0] * scale
                         cy = edge.center[1] * scale
@@ -273,7 +286,77 @@ def _hatch_area(entity, scale: float) -> float:
 
 # ── UNIT DETECTION ───────────────────────────────────────────────────────────
 
-def _detect_scale_factor(doc, msp) -> tuple:
+def _confirm_scale_with_dims(msp, candidate_scale: float) -> tuple[float, str]:
+    """
+    Verify the detected scale by checking dimension measurement values.
+    If most dimension values fall in plausible building range (0.2–20m)
+    at the candidate scale, it is confirmed. Otherwise, try alternatives.
+
+    Returns: (confirmed_scale, confirmation_note)
+    """
+    dims = []
+    for e in msp:
+        if e.dxftype() == 'DIMENSION':
+            try:
+                dims.append(e.dxf.actual_measurement)
+            except Exception:
+                pass
+
+    if len(dims) < 5:
+        # Not enough dimension data to confirm — trust the heuristic
+        return candidate_scale, f'scale unconfirmed (only {len(dims)} DIMENSION entities)'
+
+    # [0.2m–20m] covers: door width (0.9m) to long wall span (20m)
+    # Typical room dimensions: 2m–8m. Column spacing: 3m–9m. Corridor: 1.2m–2m.
+    PLAUSIBLE_MIN = 0.2   # metres
+    PLAUSIBLE_MAX = 20.0  # metres
+
+    def plausible_ratio(scale):
+        scaled = [d * scale for d in dims]
+        hits = sum(1 for d in scaled if PLAUSIBLE_MIN <= d <= PLAUSIBLE_MAX)
+        return hits / len(scaled)
+
+    candidate_ratio = plausible_ratio(candidate_scale)
+
+    # If 70%+ of dims are plausible at the candidate scale, it is confirmed
+    if candidate_ratio >= 0.70:
+        return (candidate_scale,
+                f'scale confirmed by DIMENSION entities '
+                f'({candidate_ratio*100:.0f}% of {len(dims)} dims in plausible range)')
+
+    # Otherwise try alternative scales
+    ALTERNATIVES = [
+        (0.001,  'millimetres'),
+        (0.0254, 'inches'),
+        (0.01,   'centimetres'),
+        (0.3048, 'feet'),
+        (1.0,    'metres'),
+    ]
+
+    best_scale = candidate_scale
+    best_ratio = candidate_ratio
+    best_name = 'original'
+
+    for alt_scale, alt_name in ALTERNATIVES:
+        if abs(alt_scale - candidate_scale) < 1e-6:
+            continue
+        ratio = plausible_ratio(alt_scale)
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_scale = alt_scale
+            best_name = alt_name
+
+    if best_scale != candidate_scale and best_ratio >= 0.60:
+        return (best_scale,
+                f'scale CORRECTED from {candidate_scale} to {best_scale} ({best_name}) '
+                f'based on DIMENSION entities ({best_ratio*100:.0f}% dims plausible)')
+
+    return (candidate_scale,
+            f'scale uncertain — {candidate_ratio*100:.0f}% of dims plausible '
+            f'(below 70% threshold). Using original heuristic.')
+
+
+def _guess_scale_factor(doc, msp) -> tuple:
     """
     Detect drawing unit and return (scale_to_metres, description).
 
@@ -285,13 +368,25 @@ def _detect_scale_factor(doc, msp) -> tuple:
     """
     insunits = doc.header.get('$INSUNITS', 0)
 
-    # Collect bounding box from all LINE entities
+    # Collect bounding box from major geometric entities
     all_x, all_y = [], []
     for e in msp:
         try:
-            if e.dxftype() == 'LINE':
+            etype = e.dxftype()
+            if etype == 'LINE':
                 all_x += [e.dxf.start[0], e.dxf.end[0]]
                 all_y += [e.dxf.start[1], e.dxf.end[1]]
+            elif etype in ('LWPOLYLINE', 'POLYLINE'):
+                # Quick point check for bbox
+                if hasattr(e, 'get_points'):
+                    pts = e.get_points()
+                elif hasattr(e, 'vertices'):
+                    pts = [v.dxf.location for v in e.vertices]
+                else:
+                    pts = []
+                for p in pts:
+                    all_x.append(p[0])
+                    all_y.append(p[1])
         except Exception:
             pass
 
@@ -372,6 +467,18 @@ def _detect_scale_factor(doc, msp) -> tuple:
     return 0.001, 'millimetres (absolute fallback)'
 
 
+def _detect_scale_factor(doc, msp) -> tuple:
+    detected_scale, description = _guess_scale_factor(doc, msp)
+    confirmed_scale, confirmation = _confirm_scale_with_dims(msp, detected_scale)
+
+    if confirmed_scale != detected_scale:
+        # Scale was corrected — update description
+        description = f'{confirmation} (original detection: {description})'
+        detected_scale = confirmed_scale
+
+    return detected_scale, description
+
+
 # ── HEIGHT EXTRACTION ────────────────────────────────────────────────────────
 
 def _extract_height(msp) -> tuple:
@@ -404,6 +511,230 @@ def _extract_height(msp) -> tuple:
     return None, 'default 3.0m — no storey height annotation found'
 
 
+def _detect_floor_count(msp) -> tuple[int, str]:
+    """
+    Detect number of storeys from TEXT/MTEXT annotations.
+    Returns (floor_count, source_description).
+    """
+    texts = []
+    for e in msp:
+        try:
+            t = e.dxf.text if e.dxftype() == 'TEXT' else e.text
+            if t and t.strip():
+                texts.append(t.strip().lower())
+        except Exception:
+            continue
+
+    all_text = ' '.join(texts)
+
+    FLOOR_PATTERNS = [
+        (r'basement',               'Basement'),
+        (r'ground\s*floor',         'Ground Floor'),
+        (r'mezzanine',              'Mezzanine'),
+        (r'first\s*floor',          'First Floor'),
+        (r'second\s*floor',         'Second Floor'),
+        (r'third\s*floor',          'Third Floor'),
+        (r'fourth\s*floor',         'Fourth Floor'),
+        (r'fifth\s*floor',          'Fifth Floor'),
+        (r'(?<!\w)g\.?f\.?\b',     'GF'),        # GF or G.F.
+        (r'(?<!\w)f\.?f\.?\b',     'FF'),        # FF or F.F.
+        (r'(?<!\w)s\.?f\.?\b',     'SF'),        # SF (second floor)
+    ]
+
+    detected = []
+    for pattern, label in FLOOR_PATTERNS:
+        if re.search(pattern, all_text, re.IGNORECASE):
+            detected.append(label)
+
+    floor_count = max(1, len(detected))  # minimum 1 floor always
+    floor_count = min(floor_count, 15)   # sanity cap
+
+    if detected:
+        return floor_count, f'detected {floor_count} floor level(s): {", ".join(detected)}'
+    else:
+        return 1, 'single storey assumed (no floor level annotations found)'
+
+
+# ── FILE VALIDATION ──────────────────────────────────────────────────────────
+
+def _detect_project_type(msp) -> tuple[str, list]:
+    """
+    Detect whether this is a new construction or renovation project.
+    Returns: (project_type: 'new_build'|'renovation', signals: list)
+
+    Renovation signals found in text annotations.
+    New build: no renovation signals detected.
+    """
+    texts = []
+    for e in msp:
+        try:
+            t = e.dxf.text if e.dxftype() == 'TEXT' else e.text
+            if t and t.strip():
+                texts.append(t.strip().lower())
+        except Exception:
+            continue
+
+    all_text = ' '.join(texts)
+
+    STRONG_SIGNALS = [
+        'demolish', 'demolition', 'demo plan',
+        'remodel', 'renovation', 'retrofit',
+        'alteration', 'to be removed',
+    ]
+
+    WEAK_SIGNALS = [
+        'existing', 'e.c.', '(e)',
+        'to remain', 'patch', 'repair', 'replace',
+        'new work', 'n.w.',
+    ]
+
+    strong_found = [s for s in STRONG_SIGNALS if s in all_text]
+    weak_found   = [s for s in WEAK_SIGNALS if s in all_text]
+
+    # 1 strong signal = definite renovation (e.g. "DEMOLISH EXISTING WALLS")
+    # 2+ weak signals = likely renovation (e.g. "EXISTING" + "TO REMAIN")
+    # 1 weak signal alone = new_build (just mentioning existing context)
+    is_renovation = len(strong_found) >= 1 or len(weak_found) >= 2
+
+    if is_renovation:
+        return 'renovation', strong_found + weak_found
+    else:
+        return 'new_build', strong_found + weak_found
+
+
+def _detect_building_type(msp) -> tuple[str, float]:
+    """
+    Detect building type to apply the correct gross-to-net floor area efficiency.
+    Returns: (building_type, efficiency_factor)
+    """
+    import re
+    texts = []
+    layer_names = []
+    for e in msp:
+        try:
+            if e.dxftype() in ('TEXT', 'MTEXT'):
+                t = e.dxf.text if e.dxftype() == 'TEXT' else e.text
+                if t and t.strip():
+                    texts.append(t.strip().lower())
+            
+            if hasattr(e.dxf, 'layer'):
+                layer_names.append(e.dxf.layer.lower())
+        except Exception:
+            continue
+
+    all_text = ' '.join(texts)
+    all_layers = ' '.join(set(layer_names))
+
+    INDUSTRIAL_PATTERNS = [
+        r'\bfactory\b',
+        r'\bplant\b',
+        r'\bworkshop\b',
+        r'\bproduction\s+area\b',
+        r'\bassembly\b',
+        r'\bloading\s+dock\b',
+        r'\bindustrial\b',
+    ]
+
+    RESIDENTIAL_PATTERNS = [
+        r'\bbedroom\b', r'\bbed\s*room\b', r'\bmaster\s*bed\b',
+        r'\bliving\s*room\b', r'\bdining\b', r'\bkitchen\b',
+        r'\bbathroom\b', r'\bfamily\s*room\b', r'\bdrawing\s*room\b',
+        r'\bhall\b', r'\bbalcony\b', r'\bverandah\b',
+        r'\bpooja\b', r'\butility\s*room\b',
+        r'\bresidential\b', r'\bvilla\b', r'\bapartment\b',
+        r'\bdwelling\b',
+    ]
+
+    COMMERCIAL_PATTERNS = [
+        r'\boffice\b', r'\breception\b', r'\bconference\s*room\b',
+        r'\blobby\b', r'\bretail\b',
+        r'\bshowroom\b', r'\bwarehouse\b',
+        r'\bparking\b', r'\bcorridor\b',
+        r'\brestroom\b', r'\bwashroom\b', r'\btoilet\s*block\b',
+    ]
+
+    ind_score = sum(
+        1 for pat in INDUSTRIAL_PATTERNS
+        if re.search(pat, all_text, re.IGNORECASE)
+        or re.search(pat, all_layers, re.IGNORECASE)
+    )
+
+    res_score = sum(
+        1 for pat in RESIDENTIAL_PATTERNS
+        if re.search(pat, all_text, re.IGNORECASE)
+        or re.search(pat, all_layers, re.IGNORECASE)
+    )
+
+    com_score = sum(
+        1 for pat in COMMERCIAL_PATTERNS
+        if re.search(pat, all_text, re.IGNORECASE)
+        or re.search(pat, all_layers, re.IGNORECASE)
+    )
+
+    if res_score > 0 and com_score > 0:
+        return 'mixed_use', 0.74
+    elif res_score >= com_score and res_score > 0:
+        return 'residential', 0.82
+    elif com_score > res_score:
+        return 'commercial', 0.68
+    elif ind_score > 0:
+        return 'industrial', 0.85
+    else:
+        return 'unknown', 0.72
+
+
+def _detect_pdf_conversion(doc, msp) -> tuple[bool, str]:
+    """
+    Detect if this DXF was converted from a PDF (e.g. via CloudConvert).
+    PDF-converted DXFs cannot be reliably parsed for material estimation.
+
+    Returns: (is_pdf_converted: bool, reason: str)
+    """
+    layer_counts = defaultdict(int)
+    entity_types = defaultdict(int)
+    total = 0
+
+    for e in msp:
+        layer_counts[e.dxf.layer] += 1
+        entity_types[e.dxftype()] += 1
+        total += 1
+
+    layer0_count = layer_counts.get('0', 0)
+    named_layers = len([l for l in layer_counts if l != '0'])
+
+    # Signal 1: Massive entity count on the default layer (PDF trace)
+    if layer0_count > 20000:
+        return True, (
+            f'This DXF appears to be a PDF-to-DXF conversion. '
+            f'{layer0_count:,} entities were found on the default layer '
+            f'with no architectural layer names. PDF conversions merge all '
+            f'drawing content (title blocks, detail sheets, text, dimensions) '
+            f'onto a single layer, making reliable area and wall extraction '
+            f'impossible. Please upload the original .DXF or .DWG file '
+            f'exported directly from AutoCAD, Revit, or ArchiCAD.'
+        )
+
+    # Signal 2: Only 1 unique layer AND large entity count (strong PDF signal)
+    if named_layers == 0 and total > 1000:
+        return True, (
+            f'This DXF has no named architectural layers ({total:,} entities '
+            f'all on layer "0"). Architectural DXF files always have named '
+            f'layers (WALL, FLOOR, DOOR, etc.). This file appears to be a '
+            f'PDF conversion. Upload the original CAD file.'
+        )
+
+    # Signal 3: All entities are POLYLINE type (PDF vector trace signature)
+    if entity_types.get('POLYLINE', 0) == total and total > 5000:
+        return True, (
+            f'All {total:,} entities are POLYLINE type, which is the signature '
+            f'of a PDF-to-DXF conversion. Original CAD files contain LINE, '
+            f'LWPOLYLINE, ARC, CIRCLE, HATCH, TEXT entities. '
+            f'Please upload the original architect\'s DXF file.'
+        )
+
+    return False, ''
+
+
 # ── MAIN PARSER ──────────────────────────────────────────────────────────────
 
 def parse_dxf_file(file_path: str) -> dict:
@@ -413,6 +744,31 @@ def parse_dxf_file(file_path: str) -> dict:
     """
     doc = ezdxf.readfile(file_path)
     msp = doc.modelspace()
+
+    # CHECK 1: Detect PDF-converted files before doing any geometry work
+    is_pdf, pdf_reason = _detect_pdf_conversion(doc, msp)
+    if is_pdf:
+        return {
+            'error': 'PDF_CONVERTED_DXF',
+            'message': pdf_reason,
+            'isPlausible': False,
+            'confidence': 'rejected',
+            'validation': {
+                'isPlausible': False,
+                'confidence': 'rejected',
+                'warning': pdf_reason,
+                'suggestedAction': (
+                    'Upload the original DXF file from AutoCAD, Revit, '
+                    'or ArchiCAD. PDF-to-DXF converters strip all layer '
+                    'information required for estimation.'
+                ),
+                'llmUsed': False,
+            },
+            # Zero out all geometry so Flutter cannot display wrong numbers
+            'totalWallLength': 0, 'totalFloorArea': 0, 'totalWallArea': 0,
+            'totalColumnCount': 0, 'buildingHeight': 0, 'concreteVolume': 0,
+            'unitDetected': 'unknown', 'scaleApplied': 0,
+        }
 
     # Step 1: detect unit FIRST — apply to all coordinate reads
     scale, scale_description = _detect_scale_factor(doc, msp)
@@ -461,7 +817,7 @@ def parse_dxf_file(file_path: str) -> dict:
                 elif is_beam:
                     beam_length += ln
 
-            elif etype == 'LWPOLYLINE':
+            elif etype in ('LWPOLYLINE', 'POLYLINE'):
                 ln, area = _polyline_length_and_area(entity, scale)
                 # Sanity filter on area: ignore single-room-sized or building-envelope outliers
                 # Legitimate room: 1m² – 5000m²  (e.g. a sports hall)
@@ -477,10 +833,13 @@ def parse_dxf_file(file_path: str) -> dict:
                     beam_length += ln
                 # Fallback: closed polylines not tagged as anything specific
                 # Only count if area is plausible room size and layer is not excluded
-                elif entity.is_closed and 2.0 <= area <= 500 and not any(
+                elif getattr(entity, 'is_closed', False) and 2.0 <= area <= 500 and not any(
                     [is_col, is_door, is_win, is_beam, is_stair]
                 ):
                     floor_area_by_layer['_untagged'] += area
+                # HEURISTIC: If everything is on layer 0, treat it as wall if it looks like a line/wall
+                elif layer == '0' and ln > 0.1 and not any([is_wall, is_floor, is_col, is_door, is_win, is_beam, is_stair]):
+                    wall_length_by_layer['layer_0_heuristic'] += ln
 
             elif etype == 'ARC':
                 if is_wall:
@@ -535,7 +894,10 @@ def parse_dxf_file(file_path: str) -> dict:
             pass
 
     # Process all entities in modelspace
-    for e in msp:
+    total_e = len(msp)
+    for i, e in enumerate(msp):
+        if i % 10000 == 0:
+            print(f"Processed {i}/{total_e} entities...")
         process_entity(e)
 
     # Expand block inserts
@@ -582,21 +944,29 @@ def parse_dxf_file(file_path: str) -> dict:
     height, h_source = _extract_height(msp)
     h = height if height else 3.0
 
+    # Step 4.5: detect floor count & building type
+    floor_count, floor_source = _detect_floor_count(msp)
+    building_type, efficiency_factor = _detect_building_type(msp)
+
     # Step 5: derived geometry
-    total_wall_area   = total_wall_length * h
-    # CORRECT: concrete volume = slab thickness × floor area
-    # NOT structural_volume (which includes air space in rooms)
-    concrete_volume   = total_floor_area * 0.15   # 150mm M20 slab
+    # Apply floor count and efficiency factor (gross -> net usable area)
+    total_floor_area_all_floors = (total_floor_area * floor_count) * efficiency_factor
+    concrete_volume_all_floors  = total_floor_area_all_floors * 0.15
+    total_wall_length_all_floors = total_wall_length * floor_count
+    total_wall_area_all_floors   = total_wall_length_all_floors * h
 
     # Step 6: confidence scoring
     score = 0
-    if total_wall_length > 0:  score += 3
-    if total_floor_area  > 0:  score += 3
+    if total_wall_length_all_floors > 0:  score += 3
+    if total_floor_area_all_floors  > 0:  score += 3
     if height is not None:     score += 2
     if column_count > 0:       score += 1
     if hatch_found:            score += 1
     confidence = ('high'   if score >= 8 else
                   'medium' if score >= 5 else 'low')
+
+    # Step 7: project type
+    project_type, type_signals = _detect_project_type(msp)
 
     return {
         # Unit info
@@ -604,19 +974,26 @@ def parse_dxf_file(file_path: str) -> dict:
         'scaleApplied':       scale,
 
         # Geometry
-        'totalWallLength':    round(total_wall_length, 2),
-        'totalWallArea':      round(total_wall_area, 2),
-        'totalFloorArea':     round(total_floor_area, 2),
+        'totalWallLength':    round(total_wall_length_all_floors, 2),
+        'totalWallArea':      round(total_wall_area_all_floors, 2),
+        'totalFloorArea':     round(total_floor_area_all_floors, 2),
         'floorAreaSource':    floor_area_source,
-        'concreteVolume':     round(concrete_volume, 2),
+        'floorCount':         floor_count,
+        'floorCountSource':   floor_source,
+        'floorAreaPerLevel':  round(total_floor_area, 2),
+        'concreteVolume':     round(concrete_volume_all_floors, 2),
         'totalColumnCount':   column_count,
         'buildingHeight':     h,
         'heightSource':       h_source,
-        'structuralVolume':   round(total_floor_area * h, 2),   # for reference only
+        'structuralVolume':   round(total_floor_area_all_floors * h, 2),   # for reference only
         'beamLength':         round(beam_length, 2),
         'stairArea':          round(stair_area, 2),
         'doorCount':          door_count,
         'windowCount':        window_count,
+        'projectType':        project_type,
+        'projectTypeSignals': type_signals,
+        'buildingType':       building_type,
+        'efficiencyFactor':   efficiency_factor,
 
         # Per-layer breakdowns (useful for debugging and detailed report)
         'wallLengthByLayer':  {k: round(v, 2) for k, v in wall_length_by_layer.items()},
@@ -633,6 +1010,7 @@ def parse_dxf_file(file_path: str) -> dict:
             'columns': column_count,
             'doors':   door_count,
             'windows': window_count,
+            'heuristic_walls': wall_length_by_layer.get('layer_0_heuristic', 0) > 0,
         },
     }
 

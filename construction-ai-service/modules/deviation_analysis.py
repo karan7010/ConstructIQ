@@ -1,13 +1,18 @@
 def analyze_deviation(estimate: dict, logs: list) -> dict:
     """
-    Compare estimated quantities vs aggregated logs.
+    Compare estimated quantities vs true consumed materials (logs).
+
+    IMPORTANT: This engine MUST exclusively consume data from `resourceLogs`.
+    It must NEVER process or incorporate data from `vendorBills` (invoices),
+    as vendor bills represent delivered inventory, not actual on-site consumption.
+    Mixing invoice data here will artificially inflate deviations.
     
     Args:
-        estimate: Material estimation from Phase 4.
-        logs: List of log entries from Phase 5.
+        estimate: Material estimation derived directly from the CAD analysis (Phase 4).
+        logs: Strict list of daily consumption log entries (from `resourceLogs`).
         
     Returns:
-        Analysis results with deviation percentages and alerts.
+        Analysis results with strict consumption deviation percentages and structural alerts.
     """
     # 1. Aggregate usage from logs
     actual = {

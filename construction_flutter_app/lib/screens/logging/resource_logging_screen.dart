@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../models/resource_log_model.dart';
 import '../../providers/logging_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../models/project_model.dart';
+import '../../providers/project_provider.dart';
 
 class ResourceLoggingScreen extends ConsumerStatefulWidget {
   final String projectId;
@@ -24,6 +26,14 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
 
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    final project = ref.read(projectByIdProvider(widget.projectId)).value;
+    if (project?.status == ProjectStatus.closed) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot save log: Project is closed.')));
+      }
+      return;
+    }
 
     final user = ref.read(userProfileProvider).value;
     if (user == null) return;
@@ -99,6 +109,29 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
         key: _formKey,
         child: Column(
           children: [
+            Consumer(
+              builder: (context, ref, _) {
+                final project = ref.watch(projectByIdProvider(widget.projectId)).value;
+                if (project?.status == ProjectStatus.closed) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.lock, color: Colors.red, size: 18),
+                        const SizedBox(width: 12),
+                        const Expanded(child: Text('PROJECT CLOSED. NO ENTRIES ALLOWED.', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             _buildField(_laborController, 'Labor Hours', Icons.people),
             const SizedBox(height: 16),
             _buildField(_cementController, 'Cement (Bags)', Icons.inventory_2),
@@ -117,7 +150,7 @@ class _ResourceLoggingScreenState extends ConsumerState<ResourceLoggingScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _isSaving ? null : _handleSave,
+                onPressed: (_isSaving || (ref.read(projectByIdProvider(widget.projectId)).value?.status == ProjectStatus.closed)) ? null : _handleSave,
                 child: _isSaving ? const CircularProgressIndicator() : const Text('SUBMIT DAILY LOG'),
               ),
             ),

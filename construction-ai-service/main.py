@@ -5,12 +5,31 @@ from fastapi.middleware.cors import CORSMiddleware
 import ezdxf
 from contextlib import asynccontextmanager
 from modules import cad_router, estimation_router, deviation_router, ml_router, rag_router
+from modules.invoice_parser import parse_invoice_pdf
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Model checks/loading on startup
     if os.path.exists("models/cost_overrun_model.pkl"):
         print("ML Model detected.")
+        
+    print("Pre-loading LLM clients and Vector DB models...")
+    from modules.rag_engine import rag_engine
+    
+    # 1. Force initialize OpenAI NVIDIA client
+    _ = rag_engine.nvidia_client
+    
+    # 2. Force initialize Firebase
+    _ = rag_engine.db
+    
+    # 3. Force load the local Embedding Model (SentenceTransformer)
+    try:
+        _ = rag_engine.db_manager.embedding_fn
+        print("SentenceTransformer loaded into memory.")
+    except Exception as e:
+        print(f"Failed to load embedding model: {e}")
+        
+    print("All heavy models and clients pre-loaded successfully.")
     yield
 
 app = FastAPI(
@@ -45,52 +64,53 @@ async def health_check():
         "version": "2.0.0"
     }
 
-@app.post("/parse-cad-upload")
-async def parse_cad_upload(file: UploadFile = File(...)):
+@app.post("/parse-invoice")
+async def parse_invoice(file: UploadFile = File(...)):
     """
-    Accept DXF file upload directly (multipart/form-data).
-    Used during project creation for immediate estimation.
-    No Firebase Storage required — file processed in memory.
+    Parse an uploaded invoice PDF and extract structured data.
+    Uses pdfplumber (no API key needed) with OCR fallback.
+    Returns vendor name, line items, and grand total.
     """
-    try:
-        contents = await file.read()
-        
-        # Import here to avoid circular imports
-        from modules.cad_parser import parse_from_bytes
-        from modules.estimation_engine import calculate_materials, calculate_labour
-        
-        geometry = parse_from_bytes(contents)
-        mat_result = calculate_materials(geometry)
-        labour = calculate_labour(mat_result['materials'], geometry)
-        
-        return {
-            "success": True,
-            "filename": file.filename,
-            "geometry": geometry,
-            "materials": mat_result['materials'],
-            "breakdown": mat_result.get('breakdown', {}),
-            "zoneBreakdown": mat_result.get('zoneBreakdown', {}),
-            "labour": labour,
-            "totalLabourDays": sum(
-                v.get('labour_days', 0) for v in labour.values()
-            ),
-            "confidence": geometry['confidence'],
-            "disclaimer": (
-                "Material quantities estimated using CPWD standard QTO formulas. "
-                "Actual requirements may vary based on site conditions and wastage. "
-                "No cost figures — obtain vendor quotes separately."
-            )
-        }
-    except ezdxf.DXFStructureError as e:
+    if not file.filename.lower().endswith(('.pdf', '.jpg', '.jpeg', '.png')):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid or corrupted DXF file: {str(e)}"
+            detail='Unsupported file type. Upload PDF, JPG, or PNG.'
         )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"CAD parsing failed: {str(e)}"
-        )
+
+    contents = await file.read()
+
+    # For images (JPG/PNG), wrap in a minimal PDF context for pytesseract
+    if file.filename.lower().endswith(('.jpg', '.jpeg', '.png')):
+        try:
+            import pytesseract
+            from PIL import Image
+            import io as _io
+            img = Image.open(_io.BytesIO(contents))
+            text = pytesseract.image_to_string(img, lang='eng')
+            # Re-use parse logic by injecting text directly
+            from modules.invoice_parser import (
+                _extract_vendor_name, _extract_invoice_number,
+                _extract_grand_total, _extract_line_items
+            )
+            result = {
+                'success': True,
+                'vendorName':    _extract_vendor_name(text),
+                'invoiceNumber': _extract_invoice_number(text),
+                'lineItems':     _extract_line_items(text),
+                'grandTotal':    _extract_grand_total(text),
+                'extractionMethod': 'ocr-image',
+                'rawTextPreview': text[:300],
+                'warnings': [],
+            }
+        except Exception as e:
+            result = {
+                'success': False,
+                'warnings': [f'Image parsing failed: {str(e)}']
+            }
+    else:
+        result = parse_invoice_pdf(contents)
+
+    return result
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

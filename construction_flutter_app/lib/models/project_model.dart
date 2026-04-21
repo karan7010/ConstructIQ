@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum ProjectStatus { planning, active, completed, onhold }
+enum ProjectStatus { planning, active, completed, onhold, closed }
 enum EstimationStatus { pending, processing, completed, failed }
 
 class ProjectModel {
@@ -21,7 +21,6 @@ class ProjectModel {
   final int durationDays;
   final double totalWallLength;
   final double totalFloorArea;
-
   // Getters for UI compatibility
   String get id => projectId;
 

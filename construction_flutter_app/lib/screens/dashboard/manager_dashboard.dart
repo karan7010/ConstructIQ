@@ -22,25 +22,7 @@ class ManagerDashboard extends ConsumerStatefulWidget {
 class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
   String? _selectedChartProjectId;
 
-  Future<void> _reSeedDatabase() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Seeding database...'), duration: Duration(seconds: 1)),
-    );
-    try {
-      await FirestoreSeeder.seedAll();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Seeding complete! Refreshing data...')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Seeding failed: $e')),
-        );
-      }
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -155,8 +137,8 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                     _buildProjectStatusHeader(bulletColor: bulletColor, bulletSize: bulletSize, bulletGap: bulletToTextGap),
                     SizedBox(height: titleToCardGap),
                     
-                    // SHOW ONLY THE FIRST PROJECT
-                    _ProjectRiskCard(project: projects.first),
+                    // SHOW THE SELECTED PROJECT
+                    _ProjectRiskCard(project: projects.firstWhere((p) => p.projectId == _selectedChartProjectId, orElse: () => projects.first)),
                     
                     // THE NEW VIEW ALL BUTTON (Below the Card)
                     if (projects.length > 1)
@@ -238,11 +220,6 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.sync_rounded, color: DFColors.primaryStitch),
-          onPressed: _reSeedDatabase,
-          tooltip: 'Re-sync Data',
-        ),
         Padding(
           padding: const EdgeInsets.only(right: 16.0),
           child: Stack(
@@ -252,18 +229,32 @@ class _ManagerDashboardState extends ConsumerState<ManagerDashboard> {
                 icon: const Icon(Icons.notifications_outlined, color: DFColors.primaryStitch),
                 onPressed: () => context.push('/notifications'),
               ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFBA1A1A),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: DFColors.background, width: 2),
-                  ),
-                ),
+              Consumer(
+                builder: (context, ref, child) {
+                  final allDevsAsync = ref.watch(allDeviationsProvider);
+                  final readIds = ref.watch(readNotificationsProvider);
+                  
+                  bool hasUnread = false;
+                  if (allDevsAsync.hasValue) {
+                    hasUnread = allDevsAsync.value!.any((d) => !readIds.contains(d['deviationId'] as String? ?? ''));
+                  }
+
+                  if (!hasUnread) return const SizedBox.shrink();
+
+                  return Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFBA1A1A),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: DFColors.background, width: 2),
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),

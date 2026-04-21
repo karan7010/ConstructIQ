@@ -1,32 +1,37 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:intl/intl.dart';
 import '../models/project_model.dart';
 import '../models/estimate_model.dart';
 import '../models/deviation_model.dart';
+import '../models/vendor_bill_model.dart';
+import '../models/resource_log_model.dart';
+import '../utils/material_rates.dart';
 
 class ReportService {
-  /// Generates the PDF Document but does NOT trigger printing/sharing immediately.
-  /// This allows the Document to be passed to the preview screen.
-  pw.Document generatePdfDocument(
-    ProjectModel project,
-    EstimateModel? estimate,
-    DeviationModel deviation,
-  ) {
-    final pdf = pw.Document();
+  // Color Palette Constants
+  static const _primaryColor = PdfColor.fromInt(0xFF003874);
+  static const _criticalColor = PdfColor.fromInt(0xFFB10010);
+  static const _surfaceColor = PdfColor.fromInt(0xFFF3F4F6);
+  static const _textPrimary = PdfColor.fromInt(0xFF111827);
+  static const _textSecondary = PdfColor.fromInt(0xFF4B5563);
 
-    // Color Palette
-    const primaryColor = PdfColor.fromInt(0xFF003874);
-    const criticalColor = PdfColor.fromInt(0xFFB10010);
-    const warningColor = PdfColor.fromInt(0xFFCA8A04);
-    const surfaceColor = PdfColor.fromInt(0xFFF3F4F6);
-    const textPrimary = PdfColor.fromInt(0xFF111827);
-    const textSecondary = PdfColor.fromInt(0xFF4B5563);
+  /// Generates the PDF Document including financial and log history.
+  pw.Document generatePdfDocument({
+    required ProjectModel project,
+    required EstimateModel? estimate,
+    required DeviationModel deviation,
+    required List<VendorBillModel> bills,
+    required List<ResourceLogModel> logs,
+  }) {
+    final pdf = pw.Document();
+    final currencyFormat = NumberFormat.currency(symbol: 'Rs. ', decimalDigits: 0, locale: 'en_IN');
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: pw.EdgeInsets.all(40),
+        margin: const pw.EdgeInsets.all(40),
         header: (pw.Context context) => pw.Column(
           children: [
             pw.Row(
@@ -38,27 +43,27 @@ class ReportService {
                   children: [
                     pw.Row(
                       children: [
-                        pw.Container(width: 12, height: 12, color: primaryColor),
+                        pw.Container(width: 12, height: 12, color: _primaryColor),
                         pw.SizedBox(width: 6),
-                        pw.Text("ConstructIQ", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: primaryColor)),
+                        pw.Text("ConstructIQ", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: _primaryColor)),
                       ],
                     ),
                     pw.SizedBox(height: 8),
-                    pw.Text("Project Analysis Report", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 22, color: textPrimary)),
+                    pw.Text("Project Status Report", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 24, color: _textPrimary)),
                     pw.SizedBox(height: 4),
-                    pw.Text("${project.name} | Jan-Dec 2026", style: pw.TextStyle(fontSize: 12, color: textSecondary)),
+                    pw.Text("${project.name} | Site Analysis", style: pw.TextStyle(fontSize: 12, color: _textSecondary)),
                   ],
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
                     pw.Container(
-                      padding: pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFDCFCE7), borderRadius: pw.BorderRadius.circular(12)),
-                      child: pw.Text("ACTIVE", style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColor.fromInt(0xFF166534))),
+                      child: pw.Text(project.status.name.toUpperCase(), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColor.fromInt(0xFF166534))),
                     ),
                     pw.SizedBox(height: 8),
-                    pw.Text("Gen Date: ${_formatDate(DateTime.now())}", style: pw.TextStyle(fontSize: 9, color: textSecondary)),
+                    pw.Text("Date: ${_formatDate(DateTime.now())}", style: pw.TextStyle(fontSize: 9, color: _textSecondary)),
                   ],
                 ),
               ],
@@ -76,106 +81,159 @@ class ReportService {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text("ConstructIQ Enterprise | Advanced Site Intelligence", style: pw.TextStyle(fontSize: 8, color: textSecondary)),
-                pw.Text("Page ${context.pageNumber} of ${context.pagesCount}", style: pw.TextStyle(fontSize: 8, color: textSecondary)),
+                pw.Text("ConstructIQ Pro | Confidential Site Data", style: pw.TextStyle(fontSize: 8, color: _textSecondary)),
+                pw.Text("Page ${context.pageNumber} of ${context.pagesCount}", style: pw.TextStyle(fontSize: 8, color: _textSecondary)),
               ],
             ),
           ],
         ),
         build: (pw.Context context) {
+          final totalSpent = bills.fold(0.0, (sum, b) => sum + b.amount);
+          
+          double materialCost = 0.0;
+          if (estimate != null) {
+            estimate.estimatedMaterials.forEach((name, data) {
+              if (name == 'metadata') return;
+              final qty = (data['quantity'] as num).toDouble();
+              materialCost += MaterialRates.calculateEstimatedCost(name, qty);
+            });
+          }
+          
+          final contractorShare = materialCost * 1.5;
+          final totalEstimate = materialCost * 2.5;
+          
           return [
-            // 1. BENTO DATA GRID
+            // 1. FINANCIAL SUMMARY
+            pw.Text("Summary of Accounts", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: _primaryColor)),
+            pw.SizedBox(height: 12),
             pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // ML Risk
-                pw.Expanded(
-                  flex: 4,
-                  child: pw.Container(
-                    padding: pw.EdgeInsets.all(16),
-                    decoration: pw.BoxDecoration(color: surfaceColor, borderRadius: pw.BorderRadius.circular(8)),
-                    child: pw.Column(
-                      children: [
-                        pw.Text("ML OVERRUN PROBABILITY", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: textSecondary)),
-                        pw.SizedBox(height: 12),
-                        pw.Text("${(deviation.mlOverrunProbability * 100).toStringAsFixed(0)}%", style: pw.TextStyle(fontSize: 32, fontWeight: pw.FontWeight.bold, color: deviation.mlOverrunProbability > 0.5 ? criticalColor : primaryColor)),
-                        pw.SizedBox(height: 8),
-                        pw.Container(
-                          padding: pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: pw.BoxDecoration(color: deviation.mlOverrunProbability > 0.5 ? criticalColor : primaryColor, borderRadius: pw.BorderRadius.circular(12)),
-                          child: pw.Text(deviation.mlOverrunProbability > 0.5 ? "HIGH RISK" : "NORMAL", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _buildReportStatCard("CAD MATERIALS", currencyFormat.format(materialCost), _textSecondary),
                 pw.SizedBox(width: 16),
-                // AI Insight
-                pw.Expanded(
-                  flex: 8,
-                  child: pw.Container(
-                    padding: pw.EdgeInsets.all(16),
-                    decoration: pw.BoxDecoration(color: surfaceColor, borderRadius: pw.BorderRadius.circular(8)),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text("AI Risk Assessment Summary", style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: primaryColor)),
-                        pw.SizedBox(height: 8),
-                        pw.Text(deviation.aiInsightSummary, style: pw.TextStyle(fontSize: 10, color: textPrimary)),
-                      ],
-                    ),
-                  ),
+                _buildReportStatCard("CONSTRUCTOR SHARE", currencyFormat.format(contractorShare), _textSecondary),
+              ],
+            ),
+            pw.SizedBox(height: 12),
+            pw.Row(
+              children: [
+                _buildReportStatCard("TOTAL PROJECT EST.", currencyFormat.format(totalEstimate), _primaryColor),
+                pw.SizedBox(width: 16),
+                _buildReportStatCard(
+                  "ACTUAL EXPENDITURE", 
+                  currencyFormat.format(totalSpent), 
+                  totalSpent > totalEstimate ? _criticalColor : _primaryColor
                 ),
               ],
             ),
             pw.SizedBox(height: 32),
 
-            // 2. MATERIAL TABLE
-            pw.Text("Material Estimates vs Actuals", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: primaryColor)),
+            // 2. MATERIAL BREAKDOWN (CAD ESTIMATES)
+            pw.Text("Resource Quantity Estimates (CAD-Derived)", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: _primaryColor)),
             pw.SizedBox(height: 12),
-            pw.TableHelper.fromTextArray(
-              context: context,
-              border: null,
-              headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10),
-              headerDecoration: pw.BoxDecoration(color: primaryColor),
-              rowDecoration: pw.BoxDecoration(color: surfaceColor),
-              cellAlignment: pw.Alignment.centerLeft,
-              cellStyle: pw.TextStyle(fontSize: 9),
-              headerAlignment: pw.Alignment.centerLeft,
-              headers: ['RESOURCE TYPE', 'ESTIMATED', 'ACTUAL TO DATE', 'VARIANCE'],
-              data: estimate?.estimatedMaterials.entries.map((e) {
-                return [e.key.toUpperCase(), "${e.value['quantity']} ${e.value['unit']}", "--", "--"];
-              }).toList() ?? [['No Data', '--', '--', '--']],
-              columnWidths: {
-                0: pw.FlexColumnWidth(3),
-                1: pw.FlexColumnWidth(2),
-                2: pw.FlexColumnWidth(2),
-                3: pw.FlexColumnWidth(1),
-              },
-            ),
+            if (estimate == null)
+              pw.Text("No CAD estimation data available.", style: pw.TextStyle(fontSize: 10, color: _textSecondary))
+            else
+              pw.TableHelper.fromTextArray(
+                context: context,
+                border: null,
+                headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                headerDecoration: pw.BoxDecoration(color: _primaryColor),
+                rowDecoration: const pw.BoxDecoration(color: _surfaceColor),
+                cellStyle: const pw.TextStyle(fontSize: 8),
+                headerAlignment: pw.Alignment.centerLeft,
+                headers: ['MATERIAL', 'QUANTITY', 'UNIT RATE', 'SUBTOTAL'],
+                data: estimate.estimatedMaterials.entries.where((e) => e.key != 'metadata').map((entry) {
+                  final name = entry.key;
+                  final data = entry.value;
+                  final qty = (data['quantity'] as num).toDouble();
+                  
+                  final effectiveQty = MaterialRates.getQuantityInRateUnit(name, qty);
+                  final rateUnit = MaterialRates.getRateUnitForMaterial(name);
+                  final rate = MaterialRates.getRateForMaterial(name);
+                  final subtotal = MaterialRates.calculateEstimatedCost(name, qty);
+                  
+                  return [
+                    name.toUpperCase(),
+                    '${effectiveQty.toStringAsFixed(1)} $rateUnit',
+                    rate > 0 ? 'Rs. $rate / $rateUnit' : 'N/A',
+                    currencyFormat.format(subtotal),
+                  ];
+                }).toList(),
+              ),
             pw.SizedBox(height: 32),
 
-            // 3. DEVIATION SUMMARY
-            pw.Text("Deviation Summary", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: primaryColor)),
+            // 3. RESOURCE LOGS OVERVIEW
+            pw.Text("Site Execution Logs (Recent)", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: _primaryColor)),
             pw.SizedBox(height: 12),
-            pw.Row(
-              children: [
-                _buildPdfDeviationCard(
-                  "CRITICAL FLAG", 
-                  "#9901", 
-                  "Steel Grade Mismatch", 
-                  "Batch #A4-22 fails to meet tensile specifications by 4%. Immediate stoppage on level 4.", 
-                  criticalColor,
-                ),
-                pw.SizedBox(width: 16),
-                _buildPdfDeviationCard(
-                  "WARNING FLAG", 
-                  "#8721", 
-                  "Curing Timeline", 
-                  "Humidity levels exceeding 85% on Sector 62 site causing 24hr curing lag.", 
-                  warningColor,
-                ),
-              ],
+            if (logs.isEmpty)
+              pw.Text("No execution logs found for this period.", style: pw.TextStyle(fontSize: 10, color: _textSecondary))
+            else
+              pw.TableHelper.fromTextArray(
+                context: context,
+                border: null,
+                headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                headerDecoration: pw.BoxDecoration(color: _primaryColor),
+                rowDecoration: const pw.BoxDecoration(color: _surfaceColor),
+                cellStyle: const pw.TextStyle(fontSize: 8),
+                headers: ['DATE', 'ENGINEER', 'LABOR HOURS', 'EQUIPMENT'],
+                data: logs.take(10).map((l) {
+                  return [
+                    _formatDate(l.date),
+                    l.loggedBy,
+                    "${l.laborHours.toInt()} Hours",
+                    "${l.equipmentList.length} Units Used",
+                  ];
+                }).toList(),
+              ),
+            pw.SizedBox(height: 32),
+
+            // 4. INVOICE LEDGER
+            pw.Text("Invoicing Ledger", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: _primaryColor)),
+            pw.SizedBox(height: 12),
+            if (bills.isEmpty)
+              pw.Text("No invoices archived.", style: pw.TextStyle(fontSize: 10, color: _textSecondary))
+            else
+              pw.TableHelper.fromTextArray(
+                context: context,
+                border: null,
+                headerStyle: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9),
+                headerDecoration: pw.BoxDecoration(color: _primaryColor),
+                rowDecoration: const pw.BoxDecoration(color: _surfaceColor),
+                cellStyle: const pw.TextStyle(fontSize: 8),
+                headers: ['DATE', 'VENDOR', 'CATEGORY', 'AMOUNT'],
+                data: bills.map((b) {
+                  return [
+                    _formatDate(b.date),
+                    b.vendorName,
+                    b.category,
+                    currencyFormat.format(b.amount),
+                  ];
+                }).toList(),
+              ),
+            pw.SizedBox(height: 32),
+
+            // 5. ML RISK ANALYSIS
+            pw.Text("Predictive Intelligence", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: _primaryColor)),
+            pw.SizedBox(height: 12),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(16),
+              decoration: pw.BoxDecoration(color: _surfaceColor, borderRadius: pw.BorderRadius.circular(8)),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text("ML OVERRUN RISK PROBABILITY", style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _textSecondary)),
+                      pw.Text("${(deviation.mlOverrunProbability * 100).toInt()}%", style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: deviation.mlOverrunProbability > 0.5 ? _criticalColor : _primaryColor)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 12),
+                  pw.Text("AI ASSESSMENT:", style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _primaryColor)),
+                  pw.SizedBox(height: 4),
+                  pw.Text(deviation.aiInsightSummary, style: pw.TextStyle(fontSize: 10, color: _textPrimary, lineSpacing: 1.4)),
+                ],
+              ),
             ),
           ];
         },
@@ -185,45 +243,20 @@ class ReportService {
     return pdf;
   }
 
-  pw.Widget _buildPdfDeviationCard(String label, String id, String title, String description, PdfColor color) {
+  pw.Widget _buildReportStatCard(String label, String value, PdfColor color) {
     return pw.Expanded(
       child: pw.Container(
+        padding: const pw.EdgeInsets.all(16),
         decoration: pw.BoxDecoration(
-          color: PdfColor.fromInt(0xFFF9FAFB),
-          borderRadius: pw.BorderRadius.all(pw.Radius.circular(8)),
+          color: _surfaceColor,
+          borderRadius: pw.BorderRadius.circular(8),
         ),
-        // Use a Row with a colored stripe box + content box to mimic the left border
-        child: pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Container(
-              width: 5,
-              height: 48, // Slightly taller for detail text
-              decoration: pw.BoxDecoration(
-                color: color,
-                borderRadius: pw.BorderRadius.only(
-                  topLeft: pw.Radius.circular(8),
-                  bottomLeft: pw.Radius.circular(8),
-                ),
-              ),
-            ),
-            pw.Expanded(
-              child: pw.Padding(
-                padding: pw.EdgeInsets.all(12),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(label, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: color)),
-                    pw.SizedBox(height: 4),
-                    pw.Text(title, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                    pw.SizedBox(height: 4),
-                    pw.Text(description, style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700, lineSpacing: 1.2)),
-                    pw.SizedBox(height: 4),
-                    pw.Text("Incident ID: $id", style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
-                  ],
-                ),
-              ),
-            ),
+            pw.Text(label, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
+            pw.SizedBox(height: 8),
+            pw.Text(value, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: color)),
           ],
         ),
       ),

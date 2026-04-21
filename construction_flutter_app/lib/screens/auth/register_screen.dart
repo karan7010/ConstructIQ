@@ -191,7 +191,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   _buildLabel('FULL NAME'),
                                   _buildTextField(
                                     controller: _nameController,
-                                    hintText: 'e.g. Marcus Aurelius',
+                                    hintText: 'Marcus Aurelius',
                                   ),
                                   const SizedBox(height: 20),
 

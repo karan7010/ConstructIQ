@@ -18,6 +18,20 @@ import '../../widgets/df_card.dart';
 import '../../widgets/df_pill.dart';
 import '../../providers/ml_provider.dart';
 import '../../utils/ui_config.dart';
+import '../../utils/material_rates.dart';
+import '../../services/report_service.dart';
+import '../../providers/vendor_bill_provider.dart';
+import '../../providers/resource_log_provider.dart';
+import '../../models/vendor_bill_model.dart';
+import '../../models/resource_log_model.dart';
+import '../../models/deviation_model.dart';
+import '../../services/project_service.dart';
+import '../../services/estimation_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+extension StringExtension on String {
+  String capitalize() => length > 0 ? '${this[0].toUpperCase()}${substring(1)}' : '';
+}
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
   final String projectId;
@@ -45,15 +59,73 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         final updatedProject = project.copyWith(plannedBudget: amount);
         await ref.read(projectServiceProvider).updateProject(updatedProject);
         if (!mounted) return;
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Budget updated successfully from invoice!'),
-          backgroundColor: DFColors.success,
         ));
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Extraction failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to process invoice: $e'),
+          backgroundColor: DFColors.critical,
+        ));
       } finally {
         if (mounted) setState(() => _isUploadingInvoice = false);
+      }
+    }
+  }
+
+  Future<void> _generateProjectReport() async {
+    final project = ref.read(projectByIdProvider(widget.projectId)).value;
+    if (project == null) return;
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator(color: DFColors.primaryStitch)),
+    );
+
+    try {
+      final estimate = ref.read(latestEstimateProvider(widget.projectId)).value;
+      final devData = ref.read(latestDeviationProvider(widget.projectId)).value;
+      final bills = ref.read(projectBillsProvider(widget.projectId)).value ?? [];
+      final logs = ref.read(projectLogsProvider(widget.projectId)).value ?? [];
+
+      final deviation = devData != null 
+          ? DeviationModel.fromJson(devData) 
+          : DeviationModel(
+              deviationId: '', 
+              projectId: widget.projectId, 
+              deviationPct: 0.0,
+              zScore: 0.0,
+              flagged: false,
+              overallSeverity: 'normal', 
+              mlOverrunProbability: 0.0,
+              aiInsightSummary: 'Project is performing within expected constraints.',
+              breakdown: {},
+              createdAt: DateTime.now(),
+            );
+
+      final pdf = await ReportService().generatePdfDocument(
+        project: project,
+        estimate: estimate,
+        deviation: deviation,
+        bills: bills,
+        logs: logs,
+      );
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        await ReportService().sharePdf(pdf, '${project.name}_Analysis_Report');
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to generate report: $e'),
+          backgroundColor: DFColors.critical,
+        ));
       }
     }
   }
@@ -116,6 +188,24 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           Consumer(
             builder: (context, ref, _) {
               final userRole = ref.watch(userProfileProvider).value?.role;
+              final project = ref.watch(projectByIdProvider(widget.projectId)).value;
+              
+              if ((userRole == UserRole.manager || userRole == UserRole.admin) && project?.status != ProjectStatus.closed) {
+                return IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.lock_outline_rounded, color: DFColors.primaryStitch),
+                  tooltip: 'Close Project',
+                  onPressed: () => _showCloseConfirmation(context, ref, project!),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          const SizedBox(width: ProjectDetailUI.iconGap),
+          Consumer(
+            builder: (context, ref, _) {
+              final userRole = ref.watch(userProfileProvider).value?.role;
               if (userRole == UserRole.manager || userRole == UserRole.admin) {
                 return IconButton(
                   padding: EdgeInsets.zero,
@@ -138,6 +228,24 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
 
           return Column(
             children: [
+              if (project.status == ProjectStatus.closed)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  color: DFColors.critical.withValues(alpha: 0.1),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lock_rounded, color: DFColors.critical, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'THIS PROJECT IS CLOSED. DATA IS READ-ONLY.',
+                          style: DFTextStyles.labelSm.copyWith(color: DFColors.critical, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               // Tab Bar
               Container(
                 color: Colors.white.withValues(alpha: 0.95),
@@ -152,6 +260,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       _buildTabItem(1, 'Estimates'),
                       _buildTabItem(2, 'Deviations'),
                       _buildTabItem(3, 'AI Chat'),
+                      _buildTabItem(4, 'Bills'),
                     ],
                   ),
                 ),
@@ -162,14 +271,13 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   padding: const EdgeInsets.all(0),
                   child: Column(
                     children: [
-                      _buildProjectHeader(
-                          project, deviationAsync.asData?.value),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(24, ProjectDetailUI.screenTopPadding, 24, 150), 
-                        child: _activeTabIndex == 0 ? _buildOverviewTab(project, estimateAsync.asData?.value) :
+                        child: _activeTabIndex == 0 ? _buildOverviewTab(project, estimateAsync.asData?.value, deviationAsync.asData?.value) :
                                _activeTabIndex == 1 ? _buildEstimatesTab() :
                                _activeTabIndex == 2 ? _buildDeviationsTab(project, deviationAsync.asData?.value) :
-                               _buildAiChatTab(project),
+                               _activeTabIndex == 3 ? _buildAiChatTab(project) :
+                               _buildBillsTab(project),
                       ),
                     ],
                   ),
@@ -186,49 +294,59 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     DFTextStyles.caption.copyWith(color: DFColors.critical))),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(left: 24, right: 24, bottom: 24),
-        child: Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () =>
-                    context.push('/projects/${widget.projectId}/log-entry'),
-                style: ElevatedButton.styleFrom(
+      floatingActionButton: Consumer(
+        builder: (context, ref, _) {
+          final user = ref.watch(userProfileProvider).value;
+          final userRole = user?.role;
+          final isLogAuthorized = userRole == UserRole.engineer || userRole == UserRole.owner;
+          final isProjectActive = projectAsync.asData?.value?.status == ProjectStatus.active;
+
+          return Padding(
+            padding: const EdgeInsets.only(left: 24, right: 24, bottom: 24),
+            child: Row(
+              children: [
+                if (isLogAuthorized)
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: isProjectActive 
+                        ? () => context.push('/projects/${widget.projectId}/log-entry')
+                        : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isProjectActive ? DFColors.primaryStitch : DFColors.outlineVariant,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        elevation: isProjectActive ? 8 : 0,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(isProjectActive ? Icons.add_task_rounded : Icons.lock_outline,
+                              color: Colors.white, size: 20),
+                          const SizedBox(width: 8),
+                          Text(isProjectActive ? 'Log Entry' : 'Project Closed',
+                              style: DFTextStyles.body.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Colors.white)),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (isLogAuthorized) const SizedBox(width: 16),
+                FloatingActionButton(
+                  onPressed: () =>
+                      context.push('/projects/${widget.projectId}/ai-chat'),
                   backgroundColor: DFColors.primaryStitch,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  elevation: 8,
-                  shadowColor: DFColors.primaryStitch.withValues(alpha: 0.4),
+                  elevation: 12,
+                  child: const Icon(Icons.smart_toy_rounded),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.add_task_rounded,
-                        color: Colors.white, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Log Entry',
-                        style: DFTextStyles.body.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Colors.white)),
-                  ],
-                ),
-              ),
+              ],
             ),
-            const SizedBox(width: 16),
-            FloatingActionButton(
-              onPressed: () =>
-                  context.push('/projects/${widget.projectId}/ai-chat'),
-              backgroundColor: DFColors.primaryStitch,
-              foregroundColor: Colors.white,
-              elevation: 12,
-              child: const Icon(Icons.smart_toy_rounded),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -281,17 +399,17 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                 ),
                 child: Column(
                   children: [
-                    // ROW 1: Status & Budget Label
+                    // ROW 1: Project Subtitle & Location
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('active.',
+                        Text('SITE OVERVIEW',
                             style: DFTextStyles.labelSm.copyWith(
-                                color: const Color(0xFF16A34A),
+                                color: DFColors.primaryStitch,
                                 fontWeight: FontWeight.w900,
-                                fontSize: ProjectDetailUI.matStatusFontSize)),
+                                fontSize: 10)),
                         const SizedBox(width: 8),
-                        Text('total budget.',
+                        Text('location.',
                             style: DFTextStyles.labelSm.copyWith(
                                 color: DFColors.textSecondary,
                                 fontWeight: ProjectDetailUI.matTitleWeight,
@@ -299,7 +417,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    // ROW 2: Project Name & Budget Amount
+                    // ROW 2: Project Name & Location text
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -318,32 +436,14 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          currencyFormat.format(project.plannedBudget), 
-                          style: DFTextStyles.screenTitle.copyWith(fontSize: 18, fontWeight: FontWeight.w900, color: DFColors.primaryStitch),
+                          project.location,
+                          style: DFTextStyles.body.copyWith(
+                              fontSize: 12, 
+                              color: DFColors.textSecondary,
+                              fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
-                    if (project.plannedBudget == 0.0) ...[
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: _isUploadingInvoice 
-                            ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                            : ElevatedButton.icon(
-                                onPressed: () => _pickInvoice(project),
-                                icon: const Icon(Icons.receipt_long, size: 16),
-                                label: const Text('Add Invoice'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: DFColors.primaryStitch,
-                                  side: const BorderSide(color: DFColors.primaryStitch),
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                              ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -429,8 +529,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildOverviewTab(
-      ProjectModel project, EstimateModel? latestEstimate) {
+  Widget _buildOverviewTab(ProjectModel project, EstimateModel? latestEstimate, Map<String, dynamic>? deviation) {
     final totalDays =
         project.expectedEndDate.difference(project.startDate).inDays;
     final elapsedDays = DateTime.now().difference(project.startDate).inDays;
@@ -459,6 +558,62 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildProjectHeader(project, deviation),
+        const SizedBox(height: 24),
+        if (project.status != ProjectStatus.active)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              decoration: BoxDecoration(
+                color: project.status == ProjectStatus.completed 
+                  ? DFColors.success.withValues(alpha: 0.1) 
+                  : (project.status == ProjectStatus.closed ? DFColors.critical.withValues(alpha: 0.1) : DFColors.warning.withValues(alpha: 0.1)),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: project.status == ProjectStatus.completed 
+                    ? DFColors.success 
+                    : (project.status == ProjectStatus.closed ? DFColors.critical : DFColors.warning), 
+                  width: 1
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    project.status == ProjectStatus.completed 
+                      ? Icons.check_circle_rounded 
+                      : (project.status == ProjectStatus.closed ? Icons.lock_rounded : Icons.info_outline_rounded), 
+                    color: project.status == ProjectStatus.completed 
+                      ? DFColors.success 
+                      : (project.status == ProjectStatus.closed ? DFColors.critical : DFColors.warning), 
+                    size: 24
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      project.status == ProjectStatus.completed 
+                        ? 'This project is completed.' 
+                        : (project.status == ProjectStatus.closed ? 'This project is closed and read-only.' : 
+                           (project.status == ProjectStatus.planning ? 'This project is in planning phase.' : 'This project is currently on hold.')),
+                      style: DFTextStyles.body.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: project.status == ProjectStatus.completed 
+                          ? DFColors.success 
+                          : (project.status == ProjectStatus.closed ? DFColors.critical : DFColors.warning), 
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        
+        _buildSectionTitle('Financial Summary'),
+        const SizedBox(height: 4),
+        _buildBudgetSummaryCard(project),
+        const SizedBox(height: 24),
+
         _buildSectionTitle('Project Timeline'),
         const SizedBox(height: 4), // Tighter gap for that 4px look
         Padding(
@@ -746,64 +901,386 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           ),
         ),
 
-        SizedBox(height: 20),
-        _buildSectionTitle('Financial Documents'),
-        const SizedBox(height: 2), // Tighter gap
-        Consumer(
-          builder: (context, ref, _) {
-            final userRole = ref.watch(userProfileProvider).value?.role;
-            final isAuthorized = userRole == UserRole.engineer ||
-                userRole == UserRole.manager ||
-                userRole == UserRole.admin;
+        const SizedBox(height: 32),
+        
+        // REPORT GENERATION BUTTON
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _generateProjectReport,
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+            label: const Text('GENERATE ANALYSIS REPORT'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: DFColors.primaryStitch,
+              side: const BorderSide(color: DFColors.primaryStitch, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
 
-            return Padding(
-              padding: EdgeInsets.symmetric(
-                  horizontal: ProjectDetailUI.financialCardIndent),
-              child: DFCard(
-                onTap: isAuthorized
-                    ? () => context
-                        .push('/projects/${widget.projectId}/bills/upload')
-                    : null,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: ProjectDetailUI.utilCardPadding, vertical: 12),
-                color: isAuthorized
-                    ? DFColors.primaryStitch.withValues(alpha: 0.05)
-                    : Colors.grey[100],
-                child: Opacity(
-                  opacity: isAuthorized ? 1.0 : 0.5,
+        const SizedBox(height: 48),
+      ],
+    );
+  }
+
+  Widget _buildBudgetSummaryCard(ProjectModel project) {
+    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final materialCost = ref.watch(estimatedCostProvider(project.projectId));
+    final contractorShare = materialCost * 1.5;
+    final totalProjectEstimate = materialCost * 2.5;
+    final invoicedTotal = ref.watch(invoicedTotalProvider(project.projectId));
+    
+    final isOverBudget = invoicedTotal > totalProjectEstimate && totalProjectEstimate > 0;
+    
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildSimpleFinanceCard(
+                'CAD MATERIALS', 
+                currencyFormat.format(materialCost), 
+                Icons.architecture, 
+                DFColors.textSecondary
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildSimpleFinanceCard(
+                'CONSTRUCTOR SHARE', 
+                currencyFormat.format(contractorShare), 
+                Icons.engineering_outlined, 
+                DFColors.textSecondary
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildSimpleFinanceCard(
+                'TOTAL PROJECT EST.', 
+                currencyFormat.format(totalProjectEstimate), 
+                Icons.analytics_outlined, 
+                DFColors.primaryStitch
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildSimpleFinanceCard(
+                'TOTAL INVOICED', 
+                currencyFormat.format(invoicedTotal), 
+                Icons.receipt_long, 
+                isOverBudget ? DFColors.critical : DFColors.success
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSimpleFinanceCard(String label, String value, IconData icon, Color color) {
+    return DFCard(
+      padding: const EdgeInsets.all(16),
+      color: DFColors.surfaceContainerLow.withValues(alpha: 0.3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(label, style: DFTextStyles.labelSm.copyWith(color: color, fontSize: 10)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: DFTextStyles.metricLarge.copyWith(fontSize: 18, color: DFColors.primaryStitch)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBillsTab(ProjectModel project) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final billsAsync = ref.watch(projectBillsProvider(project.projectId));
+
+        return billsAsync.when(
+          data: (bills) {
+            double totalSpent = bills.fold(0, (sum, b) => sum + b.amount);
+            final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionTitle('Financial Overview'),
+                const SizedBox(height: 16),
+                DFCard(
+                  padding: const EdgeInsets.all(20),
+                  color: DFColors.primaryStitch.withValues(alpha: 0.05),
                   child: Row(
                     children: [
-                      const Icon(Icons.receipt_long_outlined,
-                          color: DFColors.primaryStitch,
-                          size: ProjectDetailUI.utilIconSize),
-                      SizedBox(width: ProjectDetailUI.utilRowIconGap),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('UPLOAD VENDOR BILL',
-                                style: DFTextStyles.labelSm.copyWith(
-                                    fontSize: ProjectDetailUI.utilTitleFontSize,
-                                    fontWeight:
-                                        ProjectDetailUI.utilTitleWeight)),
-                            Text('Archive digital copies of site invoices.',
-                                style: DFTextStyles.caption.copyWith(
-                                    fontSize:
-                                        ProjectDetailUI.utilCaptionFontSize,
-                                    color: DFColors.textSecondary)),
+                            Text('CUMULATIVE SPEND',
+                                style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontSize: 10)),
+                            Text(currencyFormat.format(totalSpent),
+                                style: DFTextStyles.metricLarge.copyWith(fontSize: 24, color: DFColors.primaryStitch)),
                           ],
                         ),
                       ),
-                      const Icon(Icons.file_upload_outlined,
-                          color: DFColors.primaryStitch, size: 20),
+                      CircularProgressIndicator(
+                        value: project.plannedBudget > 0 ? totalSpent / project.plannedBudget : 0,
+                        backgroundColor: DFColors.outlineVariant.withValues(alpha: 0.2),
+                        color: totalSpent > project.plannedBudget ? DFColors.critical : DFColors.primaryStitch,
+                      ),
                     ],
                   ),
                 ),
-              ),
+                const SizedBox(height: 32),
+                _buildMaterialsReceivedSummary(project),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildSectionTitle('Invoice Ledger'),
+                    if ((project.status == ProjectStatus.active || project.status == ProjectStatus.planning) && project.status != ProjectStatus.closed)
+                      TextButton.icon(
+                        onPressed: () => context.push('/projects/${project.projectId}/bills/upload'),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Add Bill'),
+                        style: TextButton.styleFrom(foregroundColor: DFColors.primaryStitch),
+                      ),
+                  ],
+                ),
+                if (bills.isEmpty)
+                  _buildEmptyBillsState(project)
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: bills.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final bill = bills[index];
+                      return _buildBillLedgerItem(bill);
+                    },
+                  ),
+                const SizedBox(height: 40),
+              ],
             );
           },
+          loading: () => const Center(child: CircularProgressIndicator(color: DFColors.primaryStitch)),
+          error: (e, _) => Center(child: Text('Error loading bills: $e')),
+        );
+      },
+    );
+  }
+
+  Widget _buildMaterialsReceivedSummary(ProjectModel project) {
+    final receivedData = ref.watch(materialsReceivedProvider(project.projectId));
+    if (receivedData.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Materials Received to Date'),
+        const SizedBox(height: 16),
+        DFCard(
+          padding: const EdgeInsets.all(16),
+          color: DFColors.surfaceContainerLow.withValues(alpha: 0.3),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: receivedData.entries.map((e) {
+              return Container(
+                constraints: const BoxConstraints(minWidth: 100),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: DFColors.primaryStitch.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: DFColors.primaryStitch.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(e.key.toUpperCase(), style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary, fontSize: 10)),
+                    const SizedBox(height: 4),
+                    Text('${e.value.toStringAsFixed(0)} units', style: DFTextStyles.metricLarge.copyWith(fontSize: 16, color: DFColors.primaryStitch)),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
         ),
+        const SizedBox(height: 32),
       ],
+    );
+  }
+
+  Widget _buildEmptyBillsState(ProjectModel project) {
+    return DFCard(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          const Icon(Icons.receipt_long_outlined, size: 48, color: DFColors.outlineVariant),
+          const SizedBox(height: 16),
+          Text('No Invoices Found', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text('Upload bills to track cumulative project expenditure.',
+              textAlign: TextAlign.center, style: DFTextStyles.caption),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBillLedgerItem(VendorBillModel bill) {
+    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final dateFormat = DateFormat('dd MMM, yyyy');
+
+    return DFCard(
+      padding: const EdgeInsets.all(16),
+      onTap: () {
+        // Show bill details / items
+        _showBillDetails(bill);
+      },
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: DFColors.outlineVariant.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(_getCategoryIcon(bill.category), color: DFColors.primaryStitch, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(bill.vendorName,
+                    style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis),
+                Text('${bill.category} • ${dateFormat.format(bill.date)}', style: DFTextStyles.caption),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(currencyFormat.format(bill.amount),
+                  style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w900, color: DFColors.primaryStitch)),
+              if (bill.items.isNotEmpty)
+                Text('${bill.items.length} items', style: DFTextStyles.caption.copyWith(fontSize: 10)),
+            ],
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right_rounded, color: DFColors.outlineVariant, size: 20),
+        ],
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'cement': return Icons.layers_outlined;
+      case 'steel/rebar': return Icons.grid_3x3_rounded;
+      case 'sand/aggregate': return Icons.grain;
+      case 'bricks/blocks': return Icons.foundation;
+      case 'equipment rent': return Icons.construction;
+      case 'labor payment': return Icons.groups_outlined;
+      default: return Icons.receipt_long_outlined;
+    }
+  }
+
+  void _showBillDetails(VendorBillModel bill) {
+    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Invoice Details', style: DFTextStyles.screenTitle.copyWith(fontSize: 20)),
+                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('VENDOR', style: DFTextStyles.labelSm),
+                    Text(bill.vendorName, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('TOTAL AMOUNT', style: DFTextStyles.labelSm),
+                    Text(currencyFormat.format(bill.amount),
+                        style: DFTextStyles.metricLarge.copyWith(fontSize: 20, color: DFColors.primaryStitch)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text('LINE ITEMS', style: DFTextStyles.labelSm),
+            const SizedBox(height: 8),
+            if (bill.items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: Text('No itemized breakdown available.', style: DFTextStyles.caption)),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  itemCount: bill.items.length,
+                  separatorBuilder: (_, __) => const Divider(height: 24),
+                  itemBuilder: (context, index) {
+                    final item = bill.items[index];
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.description, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w600)),
+                              Text('${item.quantity} ${item.unit} @ ₹${item.rate}', style: DFTextStyles.caption),
+                            ],
+                          ),
+                        ),
+                        Text(currencyFormat.format(item.amount), style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            // View Original Invoice button removed as Storage is disabled
+          ],
+        ),
+      ),
     );
   }
 
@@ -976,8 +1453,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       builder: (context, ref, _) {
         final estimateAsync = ref.watch(latestEstimateProvider(widget.projectId));
         
+        final projectAsync = ref.watch(projectByIdProvider(widget.projectId));
+        
         return estimateAsync.when(
           data: (estimate) {
+            final project = projectAsync.valueOrNull;
             if (estimate == null) {
               return _buildPlaceholderEstimates('No estimates found. Upload a CAD drawing to begin.');
             }
@@ -1027,33 +1507,59 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      _buildMaterialListRow('Cement', '${mats['cement']?['quantity'] ?? 0} ${mats['cement']?['unit'] ?? 'Bags'}', Icons.inventory, DFColors.primaryStitch),
-                      const Divider(height: 24, color: DFColors.outlineVariant),
-                      _buildMaterialListRow('Bricks', '${mats['bricks']?['quantity'] ?? 0} ${mats['bricks']?['unit'] ?? 'Nos'}', Icons.grid_view, Colors.orange),
-                      const Divider(height: 24, color: DFColors.outlineVariant),
-                      _buildMaterialListRow('Steel', '${mats['steel']?['quantity'] ?? 0} ${mats['steel']?['unit'] ?? 'Kg'}', Icons.reorder, Colors.red),
+                      _buildEstimationHeader(),
+                      const Divider(height: 16, color: DFColors.outlineVariant),
+                      ...mats.entries.where((e) => e.key != 'metadata').map((entry) {
+                        final name = entry.key;
+                        final data = entry.value;
+                        final qty = (data['quantity'] as num).toDouble();
+                        
+                        final effectiveQty = MaterialRates.getQuantityInRateUnit(name, qty);
+                        final rateUnit = MaterialRates.getRateUnitForMaterial(name);
+                        final rate = MaterialRates.getRateForMaterial(name);
+                        final total = MaterialRates.calculateEstimatedCost(name, qty);
+                        
+                        return Column(
+                          children: [
+                            _buildMaterialEstimationRow(
+                              name.capitalize(), 
+                              '${effectiveQty.toStringAsFixed(1)} $rateUnit', 
+                              rate > 0 ? '₹$rate/$rateUnit' : 'N/A',
+                              total > 0 ? '₹${NumberFormat('#,##,###').format(total)}' : '--',
+                            ),
+                            const Divider(height: 16, color: DFColors.outlineVariant),
+                          ],
+                        );
+                      }).toList(),
+                      
+                      const SizedBox(height: 8),
+                      _buildTotalEstimationRow(mats),
                     ],
                   ),
                 ),
                 
+                const SizedBox(height: 16),
+                _buildDisclaimerCard(),
+                
                 const SizedBox(height: 24),
                 
                 // Action Row
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => context.push('/projects/${widget.projectId}/cad-upload'),
-                    icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                    label: const Text('UPDATE CAD DRAWING'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: DFColors.primaryStitch,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 4,
+                if (project?.status != ProjectStatus.closed)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => context.push('/projects/${widget.projectId}/cad-upload'),
+                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                      label: const Text('UPDATE CAD DRAWING'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: DFColors.primaryStitch,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 4,
+                      ),
                     ),
                   ),
-                ),
               ],
             );
           },
@@ -1087,6 +1593,93 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           Icon(icon, size: 16, color: DFColors.primaryStitch),
           const SizedBox(width: 8),
           Text('$label: $value', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEstimationHeader() {
+    return Row(
+      children: [
+        Expanded(flex: 2, child: Text('RESOURCE', style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary))),
+        Expanded(flex: 2, child: Text('QUANTITY', style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary))),
+        Expanded(flex: 2, child: Text('RATE', style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary))),
+        Expanded(flex: 2, child: Text('EST. COST', style: DFTextStyles.labelSm.copyWith(color: DFColors.textSecondary), textAlign: TextAlign.right)),
+      ],
+    );
+  }
+
+  Widget _buildMaterialEstimationRow(String name, String qty, String rate, String cost) {
+    return Row(
+      children: [
+        Expanded(flex: 2, child: Text(name, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, fontSize: 13))),
+        Expanded(flex: 2, child: Text(qty, style: DFTextStyles.body.copyWith(fontSize: 12))),
+        Expanded(flex: 2, child: Text(rate, style: DFTextStyles.body.copyWith(fontSize: 12, color: DFColors.textSecondary))),
+        Expanded(flex: 2, child: Text(cost, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w900, color: DFColors.primaryStitch, fontSize: 13), textAlign: TextAlign.right)),
+      ],
+    );
+  }
+
+  Widget _buildTotalEstimationRow(Map<String, dynamic> mats) {
+    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    double grandTotal = 0;
+    mats.forEach((name, data) {
+      if (name == 'metadata') return;
+      final qty = (data['quantity'] as num).toDouble();
+      grandTotal += MaterialRates.calculateEstimatedCost(name, qty);
+    });
+
+    final contractorShare = grandTotal * 1.5;
+    final totalProjectEstimate = grandTotal * 2.5;
+
+    return Column(
+      children: [
+        _buildSummaryLine('Material Cost (CAD)', grandTotal, currencyFormat),
+        _buildSummaryLine('Constructor Share (1.5x)', contractorShare, currencyFormat),
+        const Divider(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('TOTAL PROJECT ESTIMATE', style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.w900, color: DFColors.primaryStitch)),
+            Text('₹${NumberFormat('#,##,###').format(totalProjectEstimate)}', style: DFTextStyles.metricLarge.copyWith(fontSize: 18, color: DFColors.primaryStitch)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryLine(String label, double amount, NumberFormat format) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary)),
+          Text(format.format(amount), style: DFTextStyles.body.copyWith(fontWeight: FontWeight.w600, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisclaimerCard() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: DFColors.outlineVariant.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: DFColors.outlineVariant.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 16, color: DFColors.textSecondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Cost estimates vary based on site location, local vendor rates, and construction wastage. ConstructIQ defaults are based on standard CPWD benchmarks.',
+              style: DFTextStyles.caption.copyWith(fontSize: 11, fontStyle: FontStyle.italic),
+            ),
+          ),
         ],
       ),
     );
@@ -1512,6 +2105,44 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           ],
         );
       },
+    );
+  }
+
+  void _showCloseConfirmation(BuildContext context, WidgetRef ref, ProjectModel project) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Close Project?'),
+        content: const Text(
+            'This will make the project read-only. No further invoices or logs can be added. This action cannot be easily undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              try {
+                final closedProject = project.copyWith(status: ProjectStatus.closed);
+                await ref.read(projectServiceProvider).updateProject(closedProject);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Project closed successfully.')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error closing project: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('CLOSE PROJECT', style: TextStyle(color: DFColors.critical)),
+          ),
+        ],
+      ),
     );
   }
 }

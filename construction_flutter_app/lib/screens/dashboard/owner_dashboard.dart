@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../providers/project_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/workforce_provider.dart';
@@ -18,91 +19,302 @@ class OwnerDashboard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;
     final projectsAsync = ref.watch(userProjectsProvider);
+    final recentBillsAsync = ref.watch(ownerRecentBillsProvider);
 
     return Scaffold(
       backgroundColor: DFColors.background,
-      appBar: AppBar(
-        backgroundColor: DFColors.surface,
-        elevation: 0,
-        titleSpacing: 12,
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: DFColors.primaryContainerStitch,
-              ),
-              child: const Icon(Icons.person, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('ConstructIQ', style: DFTextStyles.cardTitle.copyWith(fontSize: 22)),
-                Text('Owner Portfolio', style: DFTextStyles.caption.copyWith(color: DFColors.textSecondary, fontSize: 10)),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: DFColors.critical),
-            onPressed: () => ref.read(authServiceProvider).signOut(),
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(context, ref, user?.name ?? 'Portfolio Owner'),
+          
+          projectsAsync.when(
+            data: (projects) {
+              if (projects.isEmpty) {
+                return SliverFillRemaining(child: _buildNoProjectState(context, ref));
+              }
+              
+              return SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildPortfolioSummary(projects, recentBillsAsync.value ?? []),
+                      const SizedBox(height: 32),
+                      
+                      _buildSectionHeader('ACTIVE PROJECTS', () => context.push('/projects')),
+                      const SizedBox(height: 16),
+                      _buildProjectCarousel(context, projects),
+                      const SizedBox(height: 32),
+                      
+                      _buildSectionHeader('PORTFOLIO COMMANDS', null),
+                      const SizedBox(height: 16),
+                      _buildActionGrid(context),
+                      const SizedBox(height: 32),
+                      
+                      _buildSectionHeader('RECENT TRANSACTIONS', () => null),
+                      const SizedBox(height: 16),
+                      _buildRecentTransactions(context, recentBillsAsync.value ?? []),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              );
+            },
+            loading: () => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
+            error: (e, _) => SliverFillRemaining(child: Center(child: Text('Error: $e'))),
           ),
-          const SizedBox(width: 12),
         ],
-      ),
-      body: projectsAsync.when(
-        data: (projects) {
-          if (projects.isEmpty) {
-            return _buildNoProjectState(context, ref);
-          }
-          final project = projects.first;
-          return _buildOwnerDashboardContent(context, ref, project, user?.name ?? 'Owner');
-        },
-        loading: () => const Center(child: CircularProgressIndicator(color: DFColors.primaryStitch)),
-        error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
   }
 
-  Widget _buildGreetingSection(String name) {
-    final String formattedDate = DateFormat('MMM d, yyyy').format(DateTime.now());
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text.rich(
-          TextSpan(
+  Widget _buildSliverAppBar(BuildContext context, WidgetRef ref, String name) {
+    return SliverAppBar(
+      expandedHeight: 120,
+      backgroundColor: DFColors.surface,
+      floating: true,
+      pinned: true,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        centerTitle: false,
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Good morning, ${name.split(' ').first}', 
+              style: DFTextStyles.cardTitle.copyWith(fontSize: 18, color: DFColors.textPrimary)),
+            Text(DateFormat('EEEE, MMM dd').format(DateTime.now()).toUpperCase(), 
+              style: DFTextStyles.labelSm.copyWith(fontSize: 9, letterSpacing: 1.2)),
+          ],
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_none_rounded, color: DFColors.textSecondary),
+          onPressed: () {},
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout_rounded, color: DFColors.critical),
+          onPressed: () => ref.read(authServiceProvider).signOut(),
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _buildPortfolioSummary(List<ProjectModel> projects, List<dynamic> bills) {
+    final currencyFormat = NumberFormat.compactCurrency(symbol: '₹', locale: 'en_IN');
+    final totalBudget = projects.fold(0.0, (sum, p) => sum + p.plannedBudget);
+    final totalSpent = bills.fold(0.0, (sum, b) => sum + b.amount);
+    final progress = totalBudget > 0 ? (totalSpent / totalBudget).clamp(0.0, 1.0) : 0.0;
+
+    return DFCard(
+      padding: const EdgeInsets.all(24),
+      color: DFColors.primaryStitch,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              TextSpan(
-                text: 'Greetings ${name.split(' ').first}', 
-                style: DFTextStyles.screenTitle.copyWith(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  color: DFColors.textPrimary,
-                ),
-              ),
-              const WidgetSpan(child: SizedBox(width: 4)),
-              WidgetSpan(
-                alignment: PlaceholderAlignment.top,
-                child: Transform.translate(
-                  offset: const Offset(0, -10),
-                  child: Text(formattedDate, 
-                    style: DFTextStyles.body.copyWith(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: DFColors.textSecondary.withValues(alpha: 0.8),
-                      letterSpacing: 0.5,
-                    )
-                  ),
-                ),
+              Text('Portfolio Health', style: DFTextStyles.labelSm.copyWith(color: Colors.white70)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4)),
+                child: Text('98% ON TRACK', style: DFTextStyles.labelSm.copyWith(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Total Spent', style: DFTextStyles.caption.copyWith(color: Colors.white70)),
+                  const SizedBox(height: 4),
+                  Text(currencyFormat.format(totalSpent), style: DFTextStyles.metricLarge.copyWith(color: Colors.white)),
+                ],
+              ),
+              const Spacer(),
+              Text('of ${currencyFormat.format(totalBudget)} total budget', 
+                style: DFTextStyles.caption.copyWith(color: Colors.white70, fontStyle: FontStyle.italic)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.white12,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProjectCarousel(BuildContext context, List<ProjectModel> projects) {
+    return SizedBox(
+      height: 180,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: projects.length,
+        padding: const EdgeInsets.only(right: 16),
+        itemBuilder: (context, index) {
+          final project = projects[index];
+          return Container(
+            width: 280,
+            margin: const EdgeInsets.only(left: 16),
+            child: DFCard(
+              onTap: () => context.push('/projects/${project.id}'),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: DFColors.primaryLight,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(project.status.name.toUpperCase(), 
+                          style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch, fontWeight: FontWeight.bold, fontSize: 9)),
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.chevron_right_rounded, color: DFColors.outlineVariant),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(project.name, style: DFTextStyles.cardTitle.copyWith(fontSize: 18)),
+                  const SizedBox(height: 4),
+                  Text(project.location, style: DFTextStyles.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _buildMiniBadge(Icons.show_chart_rounded, 'Site Stable', DFColors.normal),
+                      const SizedBox(width: 12),
+                      _buildMiniBadge(Icons.schedule_rounded, '12d left', DFColors.textSecondary),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMiniBadge(IconData icon, String text, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color.withValues(alpha: 0.6), size: 14),
+        const SizedBox(width: 4),
+        Text(text, style: DFTextStyles.labelSm.copyWith(fontSize: 10, color: color)),
+      ],
+    );
+  }
+
+  Widget _buildActionGrid(BuildContext context) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.6,
+      children: [
+        _buildActionTile(Icons.analytics_outlined, 'Insights', 'Trade-wise Trends', () {}),
+        _buildActionTile(Icons.account_balance_rounded, 'Finances', 'Audit Ledgers', () {}),
+        _buildActionTile(Icons.folder_shared_outlined, 'Docs', 'Blueprint Vault', () {}),
+        _buildActionTile(Icons.verified_user_outlined, 'Compliance', 'Safety Checks', () {}),
+      ],
+    );
+  }
+
+  Widget _buildActionTile(IconData icon, String title, String sub, VoidCallback onTap) {
+    return DFCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: DFColors.primaryStitch, size: 24),
+          const Spacer(),
+          Text(title, style: DFTextStyles.labelSm.copyWith(fontWeight: FontWeight.bold, color: DFColors.textPrimary)),
+          Text(sub, style: DFTextStyles.caption.copyWith(fontSize: 9)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentTransactions(BuildContext context, List<dynamic> bills) {
+    if (bills.isEmpty) {
+      return DFCard(
+        padding: const EdgeInsets.all(32),
+        child: Center(child: Text('No transactions found', style: DFTextStyles.caption)),
+      );
+    }
+
+    return Column(
+      children: bills.take(5).map((bill) => _buildTransactionItem(bill)).toList(),
+    );
+  }
+
+  Widget _buildTransactionItem(dynamic bill) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: DFCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.receipt_long_rounded, color: DFColors.primaryStitch, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(bill.vendorName, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
+                  Text(bill.category, style: DFTextStyles.caption.copyWith(fontSize: 11)),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('₹${NumberFormat('#,##,###').format(bill.amount)}', 
+                  style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch)),
+                Text(DateFormat('MMM dd').format(bill.date), style: DFTextStyles.caption.copyWith(fontSize: 10)),
+              ],
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, VoidCallback? onSeeAll) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: DFTextStyles.labelSm.copyWith(letterSpacing: 1.1, fontWeight: FontWeight.bold)),
+        if (onSeeAll != null)
+          GestureDetector(
+            onTap: onSeeAll,
+            child: Text('View Details', style: DFTextStyles.labelSm.copyWith(color: DFColors.primaryStitch)),
+          ),
       ],
     );
   }
@@ -133,306 +345,6 @@ class OwnerDashboard extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildOwnerDashboardContent(BuildContext context, WidgetRef ref, ProjectModel project, String userName) {
-    final workforceAsync = ref.watch(workforceByProjectProvider(project.id));
-    final deviationAsync = ref.watch(latestDeviationProvider(project.id));
-    final currencyFormat = NumberFormat.compactCurrency(symbol: '₹', locale: 'en_IN');
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(userProjectsProvider);
-        ref.invalidate(workforceByProjectProvider(project.id));
-        ref.invalidate(latestDeviationProvider(project.id));
-      },
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildGreetingSection(userName),
-            const SizedBox(height: 24),
-            // Project Spotlight
-            _buildProjectSpotlight(context, project),
-            const SizedBox(height: 32),
-            
-            // Financial & Workforce Quick Stats
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryCard(
-                    title: 'BUDGET',
-                    value: currencyFormat.format(project.plannedBudget),
-                    icon: Icons.account_balance_wallet_outlined,
-                    color: DFColors.primaryStitch,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: workforceAsync.when(
-                    data: (workers) {
-                      return _SummaryCard(
-                        title: 'WORKFORCE',
-                        value: '${workers.length} Personnel',
-                        icon: Icons.engineering_outlined,
-                        color: DFColors.normal,
-                      );
-                    },
-                    loading: () => const _SummaryLoading(),
-                    error: (_, __) => _SummaryCard(title: 'MANPOWER', value: 'Error', icon: Icons.error, color: DFColors.critical),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            
-            // Critical Alerts Region
-            Text('ACTIVE ALERTS', style: DFTextStyles.labelSm),
-            const SizedBox(height: 16),
-            deviationAsync.when(
-              data: (dev) => _buildAlertCard(context, project.id, dev),
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text('Err: $e'),
-            ),
-            const SizedBox(height: 32),
-            
-            // Project Actions
-            Text('SITE ACTIONS', style: DFTextStyles.labelSm),
-            const SizedBox(height: 16),
-            _buildActionItem(
-              context,
-              'View Site Logs',
-              'Check daily reports and progress updates.',
-              Icons.description_outlined,
-              () => context.push('/projects/${project.id}'),
-            ),
-            _buildActionItem(
-              context,
-              'Workforce Drilldown',
-              'Analyze trade-wise manpower distribution.',
-              Icons.groups_outlined,
-              () => context.push('/projects/${project.id}/workforce'),
-            ),
-            _buildActionItem(
-              context,
-              'Historical Reports',
-              'Export material usage and budget PDF reports.',
-              Icons.picture_as_pdf_outlined,
-              () => context.push('/projects/${project.id}/pdf-preview'),
-            ),
-            const SizedBox(height: 32),
-            
-            // Recent Bills Section
-            Text('RECENT VENDOR BILLS', style: DFTextStyles.labelSm),
-            const SizedBox(height: 16),
-            ref.watch(ownerRecentBillsProvider).when(
-              data: (bills) {
-                if (bills.isEmpty) {
-                  return DFCard(
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
-                      child: Text('No digital invoices archived yet.', style: DFTextStyles.caption),
-                    ),
-                  );
-                }
-                return Column(
-                  children: bills.map((bill) => _buildBillTile(context, bill)).toList(),
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Error loading bills: $e'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBillTile(BuildContext context, dynamic bill) {
-    return DFCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: DFColors.normal.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.receipt_long_outlined, color: DFColors.normal, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(bill.vendorName, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-                Text('${bill.category} • ${DateFormat('MMM dd').format(bill.date)}', style: DFTextStyles.caption.copyWith(fontSize: 11)),
-              ],
-            ),
-          ),
-          Text('₹${NumberFormat('#,##,###').format(bill.amount)}', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: DFColors.primaryStitch)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProjectSpotlight(BuildContext context, ProjectModel project) {
-    return DFCard(
-      onTap: () => context.push('/projects/${project.id}'),
-      padding: const EdgeInsets.all(24),
-      color: DFColors.primaryStitch,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4)),
-                child: Text(project.status.name.toUpperCase(), 
-                  style: DFTextStyles.labelSm.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-              const Icon(Icons.arrow_forward_rounded, color: Colors.white70, size: 18),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(project.name, style: DFTextStyles.screenTitle.copyWith(color: Colors.white, fontSize: 22)),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(Icons.location_on_outlined, color: Colors.white70, size: 12),
-              const SizedBox(width: 4),
-              Text(project.location, style: DFTextStyles.body.copyWith(color: Colors.white70, fontSize: 12)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAlertCard(BuildContext context, String projectId, Map<String, dynamic>? devData) {
-    if (devData == null || devData['overallSeverity'] == 'normal') {
-      return DFCard(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            const Icon(Icons.check_circle_outline, color: DFColors.normal),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('All benchmarks normal', style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-                  Text('Resource metrics are within estimated bounds.', style: DFTextStyles.caption),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final severity = devData['overallSeverity'] == 'critical' ? 'CRITICAL' : 'WARNING';
-    final color = devData['overallSeverity'] == 'critical' ? DFColors.critical : DFColors.warning;
-
-    return DFCard(
-      onTap: () => context.push('/projects/$projectId'),
-      color: color.withValues(alpha: 0.08),
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Icon(devData['overallSeverity'] == 'critical' ? Icons.error_outline : Icons.warning_amber_rounded, color: color),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('$severity: ${devData['reason'] ?? 'Asset Overrun'}', 
-                  style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold, color: color)),
-                const SizedBox(height: 4),
-                Text(devData['aiInsightSummary'] ?? 'Immediate site audit recommended.', 
-                  style: DFTextStyles.caption.copyWith(color: color.withValues(alpha: 0.8))),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionItem(BuildContext context, String title, String subtitle, IconData icon, VoidCallback onTap) {
-    return DFCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: DFColors.surfaceContainerLow, borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, color: DFColors.primaryStitch, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: DFTextStyles.body.copyWith(fontWeight: FontWeight.bold)),
-                Text(subtitle, style: DFTextStyles.caption.copyWith(fontSize: 11)),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right, color: DFColors.outlineVariant, size: 18),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  const _SummaryCard({required this.title, required this.value, required this.icon, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return DFCard(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 16),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(value, style: DFTextStyles.metricLarge.copyWith(fontSize: 18, height: 1.0)),
-          ),
-          const SizedBox(height: 4),
-          Text(title, 
-            style: DFTextStyles.labelSm.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: DFColors.textSecondary),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryLoading extends StatelessWidget {
-  const _SummaryLoading();
-  @override
-  Widget build(BuildContext context) {
-    return const DFCard(
-      padding: const EdgeInsets.all(20),
-      child: const Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))),
     );
   }
 }

@@ -3,7 +3,7 @@ import '../utils/design_tokens.dart';
 
 class DFButton extends StatelessWidget {
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool outlined;
   final IconData? icon;
   final bool isLoading;
@@ -11,7 +11,7 @@ class DFButton extends StatelessWidget {
   const DFButton({
     super.key,
     required this.label,
-    required this.onPressed,
+    this.onPressed,
     this.outlined = false,
     this.icon,
     this.isLoading = false,
@@ -34,28 +34,35 @@ class DFButton extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        gradient: const LinearGradient(
-          colors: [DFColors.primary, DFColors.primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: DFColors.primary.withValues(alpha: 0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        gradient: onPressed == null
+            ? null
+            : const LinearGradient(
+                colors: [DFColors.primary, DFColors.primaryDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+        color: onPressed == null ? DFColors.outline.withValues(alpha: 0.1) : null,
+        boxShadow: onPressed == null
+            ? null
+            : [
+                BoxShadow(
+                  color: DFColors.primary.withValues(alpha: 0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
+          disabledForegroundColor: DFColors.textCaption,
+          disabledBackgroundColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        child: _buildContent(Colors.white),
+        child: _buildContent(onPressed == null ? DFColors.textCaption : Colors.white),
       ),
     );
   }

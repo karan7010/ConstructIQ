@@ -48,6 +48,46 @@ class EstimationService {
     }
   }
 
+  Future<Map<String, dynamic>> extractInvoiceDetails(File file) async {
+    try {
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, 
+            filename: file.path.split('/').last),
+      });
+
+      final response = await _dio.post(
+        '$_baseUrl/api/estimation/extract-items',
+        data: formData,
+        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
+      );
+      
+      return response.data;
+    } catch (e) {
+      throw Exception('AI Invoice scanning failed: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> parseInvoiceLocal(File file) async {
+    try {
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, 
+            filename: file.path.split('/').last),
+      });
+
+      final response = await _dio.post(
+        '$_baseUrl/parse-invoice',
+        data: formData,
+        options: Options(headers: {'Authorization': 'Bearer $idToken'}),
+      );
+      
+      return response.data;
+    } catch (e) {
+      throw Exception('Invoice parsing failed: $e');
+    }
+  }
+
   Future<List<int>> generateEstimationReport(String projectName, Map<String, dynamic> data) async {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();

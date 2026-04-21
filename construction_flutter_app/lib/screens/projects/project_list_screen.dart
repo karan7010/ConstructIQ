@@ -8,6 +8,7 @@ import '../../widgets/df_pill.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user_model.dart';
+import '../../models/project_model.dart';
 
 class ProjectListScreen extends ConsumerWidget {
   const ProjectListScreen({super.key});
@@ -103,14 +104,16 @@ class _ProjectListItem extends ConsumerWidget {
 
     // Determine severity color for the left strip
     Color severityColor;
-    String status = (project.status ?? 'active').toString().toLowerCase();
+    String status = (project.status as ProjectStatus).name.toLowerCase();
     
-    if (status.contains('critical') || status.contains('delayed')) {
+    if (status == 'closed' || status == 'completed') {
+      severityColor = DFColors.normal;
+    } else if (status == 'critical' || status == 'delayed') {
       severityColor = DFColors.critical;
-    } else if (status.contains('warning') || status.contains('risk')) {
+    } else if (status == 'warning' || status == 'risk' || status == 'onhold') {
       severityColor = DFColors.warning;
     } else {
-      severityColor = DFColors.normal;
+      severityColor = DFColors.primary;
     }
 
     return DFCard(
@@ -153,7 +156,7 @@ class _ProjectListItem extends ConsumerWidget {
                         ),
                         DFPill(
                           label: status.toUpperCase(),
-                          severity: status.contains('critical') ? 'critical' : (status.contains('warning') ? 'warning' : 'normal'),
+                          severity: (status == 'critical') ? 'critical' : (status == 'warning' || status == 'onhold' ? 'warning' : 'normal'),
                         ),
                       ],
                     ),

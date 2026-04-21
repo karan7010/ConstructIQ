@@ -19,3 +19,6 @@ pandas
 numpy
 reportlab
 pdfplumber
+pytesseract
+pdf2image
+Pillow

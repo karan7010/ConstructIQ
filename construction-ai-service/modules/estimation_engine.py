@@ -7,8 +7,29 @@ def calculate_materials(geometry: dict) -> dict:
     """
     CPWD QTO formulas. Returns material quantities ONLY — no cost.
     """
+    project_type   = geometry.get("projectType", "new_build")
+
     wall_area      = geometry.get("totalWallArea", 0)
     floor_area     = geometry.get("totalFloorArea", 0)
+
+    if project_type == 'renovation':
+        return {
+            'projectType': 'renovation',
+            'materials': {
+                'wall_tiles':   {'quantity': round(wall_area, 1),  'unit': 'm2'},
+                'floor_tiles':  {'quantity': round(floor_area, 1), 'unit': 'm2'},
+                'paint':        {'quantity': round(wall_area, 1),  'unit': 'm2'},
+            },
+            'note': (
+                'Renovation project detected. Showing finish area quantities '
+                'instead of structural materials (bricks, cement, steel). '
+                'Structural quantities are not applicable for remodel work.'
+            ),
+            'openingDeductions': {},
+            'breakdown': {},
+            'zoneBreakdown': {}
+        }
+
     struct_vol     = geometry.get("structuralVolume", 0)
     beam_length    = geometry.get("beamLength", 0)
     stair_area     = geometry.get("stairArea", 0)
@@ -17,11 +38,18 @@ def calculate_materials(geometry: dict) -> dict:
     window_count   = geometry.get("windowCount", 0)
     height         = geometry.get("buildingHeight", 3.0)
 
-    # Deduct openings from wall area (avg door=2.1m², window=1.2m²)
-    opening_area  = (door_count * 2.1) + (window_count * 1.2)
+    # ── Opening deductions ──────────────────────────────────────────
+    # Standard opening sizes (CPWD norms):
+    #   Door:   0.9m wide × 2.1m high = 1.89 m² per door
+    #   Window: 1.2m wide × 1.2m high = 1.44 m² per window
+    # These areas need no bricks (they are openings, not wall surface).
+    DOOR_AREA   = 0.9 * 2.1   # 1.89 m² per door opening
+    WINDOW_AREA = 1.2 * 1.2   # 1.44 m² per window opening
+
+    opening_area = (door_count * DOOR_AREA) + (window_count * WINDOW_AREA)
     net_wall_area = max(0.0, wall_area - opening_area)
 
-    # Brick masonry
+    # Brick masonry (uses net area)
     total_bricks    = net_wall_area * 50
     cement_masonry  = net_wall_area * 0.3
     sand_masonry    = net_wall_area * 0.06
@@ -50,8 +78,8 @@ def calculate_materials(geometry: dict) -> dict:
     aggregate_col   = col_vol * 0.84
     steel_col       = col_vol * 7850 * 0.03
 
-    # Plastering (1.8× net wall area for both faces)
-    plaster_area    = net_wall_area * 1.8
+    # Plastering (1.8× raw wall area for both faces, openings still have jambs/reveals)
+    plaster_area    = wall_area * 1.8
     cement_plaster  = plaster_area * 0.11
     sand_plaster    = plaster_area * 0.022
 
@@ -73,6 +101,12 @@ def calculate_materials(geometry: dict) -> dict:
             "steel":     {"quantity": round(total_steel, 1),      "unit": "kg"},
             "sand":      {"quantity": round(total_sand, 2),       "unit": "m3"},
             "aggregate": {"quantity": round(total_aggregate, 2),  "unit": "m3"},
+        },
+        "openingDeductions": {
+            "doorCount": door_count,
+            "windowCount": window_count,
+            "openingArea": round(opening_area, 2),
+            "netWallArea": round(net_wall_area, 2),
         },
         "breakdown": {
             "brickMasonry": {

@@ -15,6 +15,7 @@ import '../../providers/project_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/estimation_provider.dart';
 import '../../utils/design_tokens.dart';
+import '../../utils/material_rates.dart';
 import '../../widgets/df_button.dart';
 
 class CreateProjectScreen extends ConsumerStatefulWidget {
@@ -35,10 +36,15 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   final _durationController = TextEditingController(text: "360");
   String? _selectedOwnerId;
 
-  // Analysis State
   File? _selectedCadFile;
   Map<String, dynamic>? _analysisResult;
   bool _isAnalyzing = false;
+
+  // CAD Validation State
+  bool _cadParsed = false;
+  bool _cadIsPlausible = true;
+  String? _cadValidationWarning;
+  String? _cadSuggestedAction;
 
   void _pickCADFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -60,12 +66,37 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
         _selectedCadFile = File(selectedPath);
         _isAnalyzing = true;
         _analysisResult = null; // Clear old analysis to avoid UI flickering/confusion
+        _cadParsed = false;
+        _cadIsPlausible = true;
+        _cadValidationWarning = null;
+        _cadSuggestedAction = null;
       });
 
       try {
         final analysis = await ref.read(estimationServiceProvider).uploadAndParseCAD(_selectedCadFile!);
+        
+        if (analysis['error'] == 'PDF_CONVERTED_DXF') {
+          setState(() {
+            _analysisResult = analysis;
+            _cadParsed = true;
+            _cadIsPlausible = false;
+            _cadValidationWarning = analysis['message'];
+            _cadSuggestedAction = analysis['validation']['suggestedAction'];
+          });
+          return;
+        }
+
+        final validationData = analysis['validation'] as Map<String, dynamic>?;
+        final bool isPlausible = validationData?['isPlausible'] as bool? ?? true;
+        final String? validationWarning = validationData?['reason'] as String? ?? validationData?['warning'] as String?;
+        final String? suggestedAction = validationData?['suggestedAction'] as String?;
+
         setState(() {
           _analysisResult = analysis;
+          _cadParsed = true;
+          _cadIsPlausible = isPlausible;
+          _cadValidationWarning = validationWarning;
+          _cadSuggestedAction = suggestedAction;
         });
       } catch (e) {
         if (!mounted) return;
@@ -112,18 +143,28 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
       final user = ref.read(authStateChangesProvider).value;
       if (user == null) return;
 
+      // Calculate planned budget from CAD analysis (Material Cost + Contractor Share)
+      double matCost = 0.0;
+      final mats = _analysisResult!['materials'] as Map<String, dynamic>;
+      mats.forEach((name, data) {
+        if (name == 'metadata') return;
+        final qty = (data['quantity'] as num).toDouble();
+        matCost += MaterialRates.calculateEstimatedCost(name, qty);
+      });
+      final calculatedBudget = matCost * 2.5; // Material + 1.5x Contractor Share
+
       final project = ProjectModel(
         projectId: const Uuid().v4(),
         name: _nameController.text.trim(),
         location: _locationController.text.trim(),
         startDate: DateTime.now(),
         expectedEndDate: DateTime.now().add(const Duration(days: 365)),
-        status: ProjectStatus.active, // Set to active as it's now "demready"
+        status: ProjectStatus.active,
         createdBy: user.uid,
         teamMembers: [user.uid],
-        plannedBudget: 0.0,
+        plannedBudget: calculatedBudget,
         projectType: _typeController.text.isEmpty ? 'Residential' : _typeController.text.trim(),
-        cadFileUrl: 'uploaded-via-stream', // In real app, this would be the actual URL
+        cadFileUrl: 'uploaded-via-stream',
         estimationStatus: EstimationStatus.completed,
         createdAt: DateTime.now(),
         ownerUserId: _selectedOwnerId,
@@ -188,13 +229,13 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
             children: [
               Text('BASIC MISSION INTEL', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: DFColors.primary)),
               const SizedBox(height: DFSpacing.md),
-              _buildField('Project Name', _nameController, 'e.g. Neo-Matrix Residency'),
+              _buildField('Project Name', _nameController, 'Neo-Matrix Residency'),
               const SizedBox(height: DFSpacing.md),
               _buildField('Location', _locationController, 'GPS Coordinates or Address'),
               const SizedBox(height: DFSpacing.md),
               _buildField('Sector', _typeController, 'Residential'),
               const SizedBox(height: DFSpacing.md),
-              _buildField('Execution Duration (Days)', _durationController, 'e.g. 360', isNumber: true),
+              _buildField('Execution Duration (Days)', _durationController, '360', isNumber: true),
               const SizedBox(height: DFSpacing.xl),
               
               Text('PROJECT OWNER', style: DFTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),
@@ -212,9 +253,11 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
               SizedBox(
                 width: double.infinity,
                 child: DFButton(
-                  label: 'Activate Project',
+                  label: _cadIsPlausible
+                      ? 'Activate Project'.toUpperCase()
+                      : 'FIX CAD FILE TO CONTINUE',
                   isLoading: _isLoading,
-                  onPressed: _submit,
+                  onPressed: (_cadParsed && _cadIsPlausible) ? _submit : null,
                 ),
               ),
             ],
@@ -269,6 +312,7 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   Widget _buildAnalysisSummary() {
     final mat = _analysisResult!['materials'];
     final geo = _analysisResult!['geometry'];
+    final validation = _analysisResult!['validation'] ?? {'isPlausible': true};
 
     return Container(
       margin: const EdgeInsets.only(top: DFSpacing.xl),
@@ -292,18 +336,31 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
             ],
           ),
           const Divider(),
-          _analysisRow('Floor Area', '${geo['totalFloorArea']} m²'),
-          _analysisRow('Estimated Bricks', '${mat['bricks']['quantity']} nos'),
-          _analysisRow('Cement Needed', '${mat['cement']['quantity']} bags'),
-          _analysisRow('Steel Req.', '${mat['steel']['quantity']} kg'),
-          const SizedBox(height: DFSpacing.sm),
-          Row(
-            children: [
-              const Icon(Icons.verified, size: 14, color: DFColors.success),
-              const SizedBox(width: 4),
-              Text('Analysis Confirmed by AI Engine (CPWD v.2.5)', style: DFTextStyles.caption.copyWith(fontSize: 10, color: DFColors.success)),
-            ],
+
+          const Divider(),
+
+          Opacity(
+            opacity: _cadIsPlausible ? 1.0 : 0.45,
+            child: Column(
+              children: [
+                _analysisRow('Floor Area', '${geo['totalFloorArea']} m²'),
+                if (geo['projectType'] == 'renovation') ...[
+                  _analysisRow('Wall Tiles (Renovation)', '${mat['wall_tiles']?['quantity'] ?? 0} m²'),
+                  _analysisRow('Floor Tiles (Renovation)', '${mat['floor_tiles']?['quantity'] ?? 0} m²'),
+                  _analysisRow('Paint Area', '${mat['paint']?['quantity'] ?? 0} m²'),
+                ] else ...[
+                  _analysisRow('Estimated Bricks', '${mat['bricks']?['quantity'] ?? 0} nos'),
+                  _analysisRow('Cement Needed', '${mat['cement']?['quantity'] ?? 0} bags'),
+                  _analysisRow('Steel Req.', '${mat['steel']?['quantity'] ?? 0} kg'),
+                  _analysisRow('Sand Estimate', '${MaterialRates.getQuantityInRateUnit('sand', (mat['sand']?['quantity'] ?? 0).toDouble()).toStringAsFixed(1)} cu.ft'),
+                  _analysisRow('Aggregate Est.', '${MaterialRates.getQuantityInRateUnit('aggregate', (mat['aggregate']?['quantity'] ?? 0).toDouble()).toStringAsFixed(1)} cu.ft'),
+                ],
+              ],
+            ),
           ),
+          const SizedBox(height: DFSpacing.sm),
+          
+          const SizedBox(height: DFSpacing.sm),
         ],
       ),
     );

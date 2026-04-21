@@ -5,6 +5,9 @@ import '../models/deviation_model.dart';
 
 final deviationServiceProvider = Provider((ref) => DeviationService());
 
+// Provider to store the IDs of notifications that have been read by the user
+final readNotificationsProvider = StateProvider<Set<String>>((ref) => {});
+
 final projectDeviationProvider = FutureProvider.family<DeviationModel, String>((ref, projectId) async {
   final service = ref.watch(deviationServiceProvider);
   return service.analyzeProject(projectId);
