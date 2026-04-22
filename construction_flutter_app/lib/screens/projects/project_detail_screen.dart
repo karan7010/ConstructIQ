@@ -417,12 +417,21 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                                 color: DFColors.primaryStitch,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 10)),
-                        const SizedBox(width: 8),
-                        Text('location.',
-                            style: DFTextStyles.labelSm.copyWith(
-                                color: DFColors.textSecondary,
-                                fontWeight: ProjectDetailUI.matTitleWeight,
-                                fontSize: ProjectDetailUI.matTitleFontSize)),
+                        Consumer(
+                          builder: (context, ref, child) {
+                            final creatorAsync = ref.watch(userByIdProvider(project.createdBy));
+                            return creatorAsync.when(
+                              data: (user) => Text('Managed by: ${user?.name ?? 'Unknown'}', 
+                                style: DFTextStyles.caption.copyWith(
+                                  fontSize: 10, 
+                                  color: DFColors.primaryStitch.withValues(alpha: 0.8),
+                                  fontWeight: FontWeight.w600,
+                                )),
+                              loading: () => const SizedBox.shrink(),
+                              error: (_, __) => const SizedBox.shrink(),
+                            );
+                          },
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),

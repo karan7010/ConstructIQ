@@ -18,8 +18,8 @@ final projectListProvider = StreamProvider.autoDispose<List<ProjectModel>>((ref)
     // Only show projects where this engineer is a team member
     query = query.where('teamMembers', arrayContains: userProfile.uid);
   } else if (userProfile.role == UserRole.manager) {
-    // Only show projects created by this manager
-    query = query.where('createdBy', isEqualTo: userProfile.uid);
+    // Managers can see all projects to facilitate collaboration
+    // (No filter applied)
   } else if (userProfile.role == UserRole.owner) {
     // Only show the specific project assigned to this owner
     if (userProfile.assignedProjectId != null) {

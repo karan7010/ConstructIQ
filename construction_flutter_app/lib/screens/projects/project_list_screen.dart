@@ -10,6 +10,7 @@ import '../../widgets/empty_state_widget.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user_model.dart';
 import '../../models/project_model.dart';
+import '../../providers/user_provider.dart';
 
 class ProjectListScreen extends ConsumerWidget {
   const ProjectListScreen({super.key});
@@ -163,6 +164,22 @@ class _ProjectListItem extends ConsumerWidget {
                     ),
                     const SizedBox(height: DFSpacing.xs),
                     Text(project.location, style: DFTextStyles.cardSubtitle),
+                    const SizedBox(height: 4),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final creatorAsync = ref.watch(userByIdProvider(project.createdBy));
+                        return creatorAsync.when(
+                          data: (user) => Text('Managed by: ${user?.name ?? 'Unknown'}', 
+                            style: DFTextStyles.caption.copyWith(
+                              fontSize: 10, 
+                              color: DFColors.primaryStitch.withValues(alpha: 0.8),
+                              fontWeight: FontWeight.w600,
+                            )),
+                          loading: () => const SizedBox(height: 12),
+                          error: (_, __) => const SizedBox(height: 12),
+                        );
+                      },
+                    ),
                     const SizedBox(height: DFSpacing.md),
                     Row(
                       children: [

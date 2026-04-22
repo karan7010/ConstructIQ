@@ -37,7 +37,7 @@ final userAssignedProjectsProvider = StreamProvider.autoDispose
       .map((snap) => snap.docs.map((doc) => ProjectModel.fromJson(doc.data())).toList());
 });
 
-final availableEngineersProvider = StreamProvider.autoDispose.family<List<UserModel>, String>((ref, projectId) {
+final availableTeamMembersProvider = StreamProvider.autoDispose.family<List<UserModel>, String>((ref, projectId) {
   final authState = ref.watch(authStateChangesProvider);
   final currentUid = authState.value?.uid;
 
@@ -50,7 +50,7 @@ final availableEngineersProvider = StreamProvider.autoDispose.family<List<UserMo
     
     final usersSnap = await FirebaseFirestore.instance
         .collection('users')
-        .where('role', isEqualTo: 'engineer')
+        .where('role', whereIn: ['engineer', 'manager'])
         .get();
 
     return usersSnap.docs

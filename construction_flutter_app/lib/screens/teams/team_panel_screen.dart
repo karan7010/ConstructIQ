@@ -135,7 +135,7 @@ class _TeamMemberCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(member.name, style: DFTextStyles.cardTitle),
-                    Text(member.designation ?? 'Site Engineer', style: DFTextStyles.caption),
+                    Text(member.designation ?? (member.role == UserRole.manager ? 'Project Manager' : 'Site Engineer'), style: DFTextStyles.caption),
                   ],
                 ),
               ),
@@ -233,7 +233,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final availableEngineersAsync = ref.watch(availableEngineersProvider(widget.projectId));
+    final availableMembersAsync = ref.watch(availableTeamMembersProvider(widget.projectId));
 
     return DraggableScrollableSheet(
       expand: false,
@@ -245,32 +245,32 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Available Engineers', style: DFTextStyles.headline),
+              Text('Available Staff', style: DFTextStyles.headline),
               const SizedBox(height: 16),
               Expanded(
-                child: availableEngineersAsync.when(
+                child: availableMembersAsync.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Error: \$e')),
-                  data: (engineers) {
-                    if (engineers.isEmpty) {
-                      return const Center(child: Text('No engineers found.'));
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (members) {
+                    if (members.isEmpty) {
+                      return const Center(child: Text('No additional staff found.'));
                     }
                     return ListView.builder(
                       controller: controller,
-                      itemCount: engineers.length,
+                      itemCount: members.length,
                       itemBuilder: (ctx, idx) {
-                        final eng = engineers[idx];
+                        final staff = members[idx];
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundColor: DFColors.primaryLight,
-                            child: Text(eng.name[0].toUpperCase()),
+                            child: Text(staff.name[0].toUpperCase()),
                           ),
-                          title: Text(eng.name, style: DFTextStyles.body),
-                          subtitle: Text(eng.designation ?? 'Site Engineer', style: DFTextStyles.caption),
-                          onTap: _isLoading ? null : () => _addEngineer(eng.uid),
+                          title: Text(staff.name, style: DFTextStyles.body),
+                          subtitle: Text(staff.designation ?? (staff.role == UserRole.manager ? 'Project Manager' : 'Site Engineer'), style: DFTextStyles.caption),
+                          onTap: _isLoading ? null : () => _addMember(staff.uid),
                           trailing: IconButton(
                             icon: const Icon(Icons.add_circle, color: DFColors.primaryStitch),
-                            onPressed: _isLoading ? null : () => _addEngineer(eng.uid),
+                            onPressed: _isLoading ? null : () => _addMember(staff.uid),
                           ),
                         );
                       },
@@ -285,7 +285,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     );
   }
 
-  Future<void> _addEngineer(String uid) async {
+  Future<void> _addMember(String uid) async {
     setState(() => _isLoading = true);
     try {
       await FirebaseFirestore.instance.collection('projects').doc(widget.projectId).update({
